@@ -2,7 +2,7 @@ import { BadRequestException, Controller, HttpCode, HttpStatus, Logger, Post, Ra
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import { Request } from "express";
-import { SubscriptionStatus } from "@prisma/client";
+import { SubscriptionStatus, TenantPlan } from "@prisma/client";
 import { StripeService } from "./stripe.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { Public } from "../common/decorators";
@@ -70,15 +70,36 @@ export class StripeWebhookController {
     return { received: true };
   }
 
+  /** Normalize a plan code from Stripe metadata to a valid TenantPlan, or null. */
+  private validPlanCode(code: string | undefined | null): TenantPlan | null {
+    if (!code) return null;
+    const plan = code.toUpperCase() as TenantPlan;
+    return Object.values(TenantPlan).includes(plan) ? plan : null;
+  }
+
+  /** Keep the tenant plan in sync with the subscribed plan so entitlements
+   *  and gating reflect what was actually purchased (valid TenantPlan codes only). */
+  private async syncTenantPlan(tenantId: string, plan: TenantPlan) {
+    await this.prisma.tenant.update({ where: { id: tenantId }, data: { plan } });
+  }
+
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const { tenantId, planCode } = session.metadata ?? {};
     if (!tenantId || !planCode) {
       this.logger.warn(`checkout.session.completed missing metadata: ${session.id}`);
       return;
     }
+    const plan = this.validPlanCode(planCode);
+    if (!plan) {
+      this.logger.warn(`checkout.session.completed invalid plan code: ${planCode}`);
+      return;
+    }
 
-    const subId = session.subscription as string;
-    const customerId = session.customer as string;
+    // session.subscription is an id string in real webhook payloads, but can be
+    // the expanded object when the session was retrieved with expand — accept both.
+    const sub = session.subscription as string | Stripe.Subscription | null;
+    const subId = typeof sub === "string" ? sub : (sub?.id ?? null);
+    const customerId = typeof session.customer === "string" ? session.customer : null;
 
     // The subscription may still be in its Stripe trial (trialing) when the
     // checkout completes — carry over the Stripe trial period so the billing
@@ -100,7 +121,7 @@ export class StripeWebhookController {
     await this.prisma.subscription.upsert({
       where: { tenantId },
       update: {
-        planCode,
+        planCode: plan,
         status,
         provider: "stripe",
         providerRef: subId,
@@ -108,7 +129,7 @@ export class StripeWebhookController {
       },
       create: {
         tenantId,
-        planCode,
+        planCode: plan,
         status,
         provider: "stripe",
         providerRef: subId,
@@ -117,12 +138,16 @@ export class StripeWebhookController {
     });
 
     // Store the Stripe customer ID on the tenant for future reference
-    await this.prisma.tenant.update({
-      where: { id: tenantId },
-      data: { settings: { stripeCustomerId: customerId } },
-    });
+    if (customerId) {
+      await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: { settings: { stripeCustomerId: customerId } },
+      });
+    }
 
-    this.logger.log(`Checkout completed: tenant=${tenantId} plan=${planCode} sub=${subId}`);
+    await this.syncTenantPlan(tenantId, plan);
+
+    this.logger.log(`Checkout completed: tenant=${tenantId} plan=${plan} sub=${subId}`);
   }
 
   private async handleSubscriptionUpdated(sub: Stripe.Subscription) {
@@ -147,15 +172,30 @@ export class StripeWebhookController {
 
     const newStatus = statusMap[sub.status] ?? SubscriptionStatus.ACTIVE;
     const trialEndsAt = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
+    // The current Stripe API surfaces the period end via billing_schedules
+    // (bill_until.computed_timestamp) rather than current_period_end; older API
+    // shapes may still send current_period_end, and it can be null while a
+    // subscription is trialing — accept any of them, never a Date(NaN).
+    const periodEndRaw =
+      (sub as Stripe.Subscription & { current_period_end?: number | null }).current_period_end ??
+      sub.billing_schedules?.[0]?.bill_until?.computed_timestamp ??
+      sub.trial_end;
+    const currentPeriodEnd = periodEndRaw ? new Date(periodEndRaw * 1000) : null;
+    // Plan changes made in the Stripe portal surface here — derive the plan code
+    // from the subscription item's price metadata when available.
+    const rawPriceCode = sub.items?.data?.[0]?.price?.metadata?.creditos_plan_code;
+    const pricePlan = this.validPlanCode(rawPriceCode);
 
     await this.prisma.subscription.update({
       where: { id: existing.id },
       data: {
         status: newStatus,
-        currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
+        currentPeriodEnd,
         trialEndsAt: newStatus === SubscriptionStatus.TRIALING ? trialEndsAt : null,
+        ...(pricePlan ? { planCode: pricePlan } : {}),
       },
     });
+    if (pricePlan) await this.syncTenantPlan(existing.tenantId, pricePlan);
 
     this.logger.log(`Subscription updated: ${existing.tenantId} → ${sub.status}`);
   }

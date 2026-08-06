@@ -641,18 +641,18 @@ let stripeClient: Stripe | null | undefined;
 function getStripeClient(): Stripe | null {
   if (stripeClient !== undefined) return stripeClient;
   const key = process.env.STRIPE_SECRET_KEY;
-  stripeClient = key ? new Stripe(key, { apiVersion: "2025-06-16.basil" as Stripe.LatestApiVersion }) : null;
+  // Use the SDK's default API version (see billing/stripe.service.ts).
+  stripeClient = key ? new Stripe(key) : null;
   return stripeClient;
 }
 
 /** Reuse an existing Stripe price for the plan, or create product + price. */
 async function ensureStripePrice(stripe: Stripe, plan: SeedPlan): Promise<string> {
-  // Pagination-safe lookup of the plan's product by metadata.
-  const results = await stripe.products.search({
-    query: `metadata["creditos_plan_code"]:"${plan.code}"`,
-    limit: 10,
-  });
-  const existing = results.data.find((prod) => prod.active);
+  // Use the standard list endpoint — it is strongly consistent, whereas
+  // products.search can lag behind newly created objects and would let the
+  // seed create duplicate products on consecutive runs.
+  const products = await stripe.products.list({ active: true, limit: 100 });
+  const existing = products.data.find((prod) => prod.metadata?.creditos_plan_code === plan.code);
 
   if (existing) {
     const prices = await stripe.prices.list({ product: existing.id, active: true, limit: 20 });

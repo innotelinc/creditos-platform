@@ -12,7 +12,9 @@ export class StripeService implements OnModuleInit {
   onModuleInit() {
     const key = this.config.get<string>("STRIPE_SECRET_KEY");
     if (key && key.length > 0) {
-      this._client = new Stripe(key, { apiVersion: "2025-06-16.basil" as Stripe.LatestApiVersion });
+      // Use the SDK's default API version — pinning a hardcoded version string
+      // throws "Invalid Stripe API version" when the SDK build changes.
+      this._client = new Stripe(key);
       this.logger.log("Stripe client initialized");
     } else {
       this.logger.warn("STRIPE_SECRET_KEY not set — billing will use local/simulated mode");
