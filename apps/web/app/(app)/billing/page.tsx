@@ -53,6 +53,12 @@ export default function BillingPage() {
     onError: (err: Error) => toast({ type: "error", title: "Checkout failed", description: err.message }),
   });
 
+  const portal = useMutation({
+    mutationFn: () => api.post<{ url: string }>("/billing/portal", {}),
+    onSuccess: (res) => { window.location.href = res.url; },
+    onError: (err: Error) => toast({ type: "error", title: "Portal failed", description: err.message }),
+  });
+
   const cancel = useMutation({
     mutationFn: () => api.post<{ success: boolean }>("/billing/cancel", {}),
     onSuccess: () => {
@@ -117,9 +123,11 @@ export default function BillingPage() {
                         <X className="h-4 w-4" /> Cancel
                       </Button>
                     )}
-                    <Link href="/settings">
-                      <Button variant="outline" size="sm"><CreditCard className="h-4 w-4" /> Payment settings</Button>
-                    </Link>
+                    {sub?.provider === "stripe" && (
+                      <Button variant="outline" size="sm" loading={portal.isPending} onClick={() => portal.mutate()}>
+                        <CreditCard className="h-4 w-4" /> Manage billing
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <div className="mt-5">

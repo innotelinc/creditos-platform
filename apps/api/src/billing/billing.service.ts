@@ -166,4 +166,32 @@ export class BillingService {
     await this.audit.log({ action: "billing.canceled", entity: "Subscription", entityId: tenantId });
     return { success: subscription.count > 0 };
   }
+
+  /** Create a Stripe Customer Portal session so the user can manage their subscription. */
+  async portal() {
+    const tenantId = this.tenancy.getTenantId();
+
+    const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
+    if (!sub || sub.provider !== "stripe" || !sub.providerRef) {
+      throw new NotFoundException("No active Stripe subscription found. Switch to a paid plan first.");
+    }
+
+    // Look up the Stripe customer ID: stored on the tenant during checkout.session.completed
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
+    let customerId = settings.stripeCustomerId as string | undefined;
+
+    // Fallback: fetch the subscription from Stripe to get the customer ID
+    if (!customerId && this.stripe.client) {
+      const stripeSub = await this.stripe.client.subscriptions.retrieve(sub.providerRef);
+      customerId = stripeSub.customer as string;
+    }
+
+    if (!customerId) {
+      throw new NotFoundException("Stripe customer not found. Please contact support.");
+    }
+
+    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+    return this.stripe.createPortalSession({ customerId, returnUrl: `${appUrl}/billing` });
+  }
 }

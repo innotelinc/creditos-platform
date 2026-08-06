@@ -40,8 +40,15 @@ export class BillingController {
 
   @Post("cancel")
   @Permissions("adminAll")
-  @ApiOperation({ summary: "Cancel the tenant subscription (downgrades to Free)" })
+  @ApiOperation({ summary: "Cancel the tenant subscription" })
   cancel() {
     return this.billing.cancel();
+  }
+
+  @Post("portal")
+  @Permissions("adminAll")
+  @ApiOperation({ summary: "Get a Stripe Customer Portal URL for managing payment method, invoices, and subscription" })
+  portal() {
+    return this.billing.portal();
   }
 }

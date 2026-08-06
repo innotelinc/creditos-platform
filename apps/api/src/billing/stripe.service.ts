@@ -55,6 +55,24 @@ export class StripeService implements OnModuleInit {
     return { url: session.url!, sessionId: session.id };
   }
 
+  /**
+   * Create a Stripe Customer Portal session so users can manage their
+   * payment method, view invoices, and cancel/reactivate.
+   */
+  async createPortalSession(params: {
+    customerId: string;
+    returnUrl: string;
+  }): Promise<{ url: string }> {
+    if (!this._client) throw new Error("Stripe is not configured");
+
+    const session = await this._client.billingPortal.sessions.create({
+      customer: params.customerId,
+      return_url: params.returnUrl,
+    });
+
+    return { url: session.url };
+  }
+
   /** Verify a Stripe webhook signature and return the typed event. */
   constructWebhookEvent(rawBody: Buffer, signature: string, secret: string): Stripe.Event {
     if (!this._client) throw new Error("Stripe is not configured");
