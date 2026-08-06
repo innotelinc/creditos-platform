@@ -67,6 +67,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Prisma generate
+        working-directory: apps/api
+        run: npx prisma generate
       - name: Run migrations
         working-directory: apps/api
         run: npx prisma migrate deploy
