@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: { bodySizeLimit: "25mb" }
-  }
+  },
+  allowedDevOrigins: ["192.168.1.168", "localhost"]
 };
 
 export default nextConfig;
