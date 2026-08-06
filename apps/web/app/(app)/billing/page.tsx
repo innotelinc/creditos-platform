@@ -23,6 +23,7 @@ const STATUS_STYLE: Record<string, string> = {
   TRIALING: "info",
   PAST_DUE: "warning",
   CANCELED: "neutral",
+  EXPIRED: "danger",
 };
 
 export default function BillingPage() {
@@ -72,6 +73,7 @@ export default function BillingPage() {
   const currentCode = sub?.planCode ?? data?.tenant.plan ?? "TRIAL";
   const plans: Plan[] = catalog?.business ?? [];
   const entitlements = data?.entitlements ?? [];
+  const expired = sub?.status === "EXPIRED";
 
   return (
     <div className="space-y-6">
@@ -89,6 +91,20 @@ export default function BillingPage() {
         </div>
       ) : (
         <>
+          {expired && (
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-500/25 bg-rose-500/8 px-5 py-4" role="alert">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/12 text-rose-500">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-rose-600 dark:text-rose-300">Your trial has ended</p>
+                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                  Your workspace is currently on a limited plan. Choose a plan below to restore full access to
+                  reports, analysis, disputes and letters — your data is safe.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Subscription */}
             <Card className="lg:col-span-2">
@@ -120,7 +136,7 @@ export default function BillingPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    {sub && sub.status !== "CANCELED" && (
+                    {sub && sub.status !== "CANCELED" && sub.status !== "EXPIRED" && (
                       <Button variant="outline" size="sm" loading={cancel.isPending} onClick={() => cancel.mutate()}>
                         <X className="h-4 w-4" /> Cancel
                       </Button>
@@ -175,7 +191,7 @@ export default function BillingPage() {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
                 {plans.map((p) => {
-                  const isCurrent = p.code === currentCode;
+                  const isCurrent = !expired && p.code === currentCode;
                   const isTrial = sub?.status === "TRIALING" && p.code !== "TRIAL";
                   return (
                     <div
@@ -202,7 +218,7 @@ export default function BillingPage() {
                         loading={checkout.isPending && checkout.variables === p.code}
                         onClick={() => checkout.mutate(p.code)}
                       >
-                        {isCurrent ? "Current plan" : "Switch"}
+                        {expired ? "Subscribe" : isCurrent ? "Current plan" : "Switch"}
                       </Button>
                     </div>
                   );

@@ -7,6 +7,7 @@ import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./prisma/prisma.module";
 import { TenancyModule } from "./common/tenancy.module";
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from "./common/guards";
+import { SubscriptionGateGuard } from "./common/subscription.gate";
 import { TenancyInterceptor } from "./common/tenancy.interceptor";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { AuthModule } from "./auth/auth.module";
@@ -80,6 +81,7 @@ import { DocumentsModule } from "./documents/documents.module";
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_GUARD, useClass: SubscriptionGateGuard },
     { provide: APP_INTERCEPTOR, useClass: TenancyInterceptor },
   ],
 })

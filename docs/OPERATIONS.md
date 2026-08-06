@@ -20,6 +20,23 @@ local/simulated mode. Price IDs are wired up by the seed:
 (`checkout.session.completed`, `customer.subscription.*`, `invoice.paid`) to
 update local subscriptions; see `apps/api/src/billing/stripe.webhook.controller.ts`.
 
+## Trial expiry
+
+Every workspace starts with a `TRIAL_DAYS`-long trial. When a trial ends
+without converting to a paid plan, the subscription is marked `EXPIRED`:
+
+- A hourly sweep (`TrialExpiryService`) flips overdue `TRIALING` subscriptions
+  to `EXPIRED` and emails + notifies the workspace admins, pointing them to
+  the billing page.
+- The same expiry runs lazily whenever an admin opens the billing page or the
+  app shell checks `/billing/status`.
+- Once `EXPIRED`, a global guard returns `402 Payment Required` on every core
+  endpoint (reports, analysis, letters, disputes, documents, dashboard, CRM,
+  user management) until a paid plan is chosen. Auth, billing, settings,
+  notifications, public pages, and platform admin stay reachable.
+- Client-role users of an expired workspace see a lock screen (only the
+  workspace admin can re-subscribe).
+
 ## Backups (PostgreSQL)
 
 Local (Docker): a nightly pg_dump job can be added with:

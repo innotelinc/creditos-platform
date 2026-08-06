@@ -523,6 +523,7 @@ enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
   CANCELED
+  EXPIRED // trial ended without conversion — access blocked until a plan is chosen
 }
 
 enum InvoiceStatus {

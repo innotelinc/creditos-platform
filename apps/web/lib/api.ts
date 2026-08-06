@@ -265,6 +265,14 @@ export interface BillingSummary {
   entitlements: string[];
 }
 
+export interface BillingStatus {
+  status: string | null;
+  planCode: string | null;
+  trialEndsAt: string | null;
+  /** True when access is blocked because the trial ended without conversion. */
+  blocked: boolean;
+}
+
 export interface CrmLead {
   id: string;
   name: string;

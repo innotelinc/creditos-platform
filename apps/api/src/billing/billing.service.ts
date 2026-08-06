@@ -6,6 +6,7 @@ import { TenancyService } from "../common/tenancy";
 import { PricingService } from "../pricing/pricing.service";
 import { AuditService } from "../audit/audit.service";
 import { StripeService } from "./stripe.service";
+import { TrialExpiryService } from "./trial-expiry.service";
 
 @Injectable()
 export class BillingService {
@@ -15,11 +16,15 @@ export class BillingService {
     private readonly pricing: PricingService,
     private readonly audit: AuditService,
     private readonly stripe: StripeService,
+    private readonly trialExpiry: TrialExpiryService,
     private readonly config: ConfigService,
   ) {}
 
   async summary() {
     const tenantId = this.tenancy.getTenantId();
+    // Lazily expire an overdue trial so the UI shows EXPIRED right away
+    // (the hourly sweep is the backstop for tenants who never log in).
+    await this.trialExpiry.expireIfOverdue(tenantId);
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     const subscription = await this.prisma.subscription.findUnique({ where: { tenantId } });
     const invoices = await this.prisma.invoice.findMany({
@@ -38,6 +43,25 @@ export class BillingService {
       invoices,
       usage: { clients, reports, lettersSent },
       entitlements: tenant ? this.pricing.entitlements(tenant.plan as TenantPlan) : [],
+    };
+  }
+
+  /** Lightweight subscription status for the current tenant — no admin
+   *  permission required, so any authenticated user can render the paywall. */
+  async status() {
+    const tenantId = this.tenancy.getTenantId();
+    await this.trialExpiry.expireIfOverdue(tenantId);
+    const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
+    const now = new Date();
+    const blocked =
+      !!sub &&
+      (sub.status === SubscriptionStatus.EXPIRED ||
+        (sub.status === SubscriptionStatus.TRIALING && !!sub.trialEndsAt && sub.trialEndsAt < now));
+    return {
+      status: sub?.status ?? null,
+      planCode: sub?.planCode ?? null,
+      trialEndsAt: sub?.trialEndsAt ?? null,
+      blocked,
     };
   }
 

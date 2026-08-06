@@ -31,6 +31,12 @@ export class BillingController {
     return this.billing.summary();
   }
 
+  @Get("status")
+  @ApiOperation({ summary: "Subscription status for the current tenant — available to any authenticated user (used to render the trial-expired paywall)" })
+  status() {
+    return this.billing.status();
+  }
+
   @Post("checkout")
   @Permissions("adminAll")
   @ApiOperation({ summary: "Start or switch a subscription. Returns a Stripe Checkout URL when Stripe is configured, or processes locally." })
