@@ -231,6 +231,7 @@ export interface Plan {
 export interface PricingCatalog {
   business: Plan[];
   consumer: Plan[];
+  trialDays: number;
 }
 
 export interface SubscriptionInfo {

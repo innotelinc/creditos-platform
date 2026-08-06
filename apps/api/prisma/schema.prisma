@@ -98,8 +98,7 @@ enum DocumentType {
 }
 
 enum TenantPlan {
-  FREE     // kept for legacy tenants; not shown in catalog
-  TRIAL    // 3-day trial for new signups
+  TRIAL    // configurable trial for new signups (TRIAL_DAYS)
   STARTER
   PROFESSIONAL
   BUSINESS
@@ -118,7 +117,7 @@ model Tenant {
   name         String
   slug         String     @unique
   logoUrl      String?
-  plan         TenantPlan @default(FREE)
+  plan         TenantPlan @default(TRIAL)
   brandColor   String?    @default("#6366f1")
   emailDomain  String?
   timezone     String     @default("America/New_York")

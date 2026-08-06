@@ -41,9 +41,10 @@ export class BillingService {
     };
   }
 
-  /** Start a 3-day trial for a newly registered tenant. */
+  /** Start a configurable-length trial (TRIAL_DAYS) for a newly registered tenant. */
   async startTrial(tenantId: string): Promise<void> {
-    const trialEnds = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const trialDays = this.config.get<number>("TRIAL_DAYS") ?? 3;
+    const trialEnds = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
     await this.prisma.subscription.upsert({
       where: { tenantId },
       update: {
@@ -86,11 +87,20 @@ export class BillingService {
       });
       const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
 
+      // Grant the trial only on the first checkout — switching plans later
+      // must not restart it. The trial runs through Stripe (trial_period_days)
+      // so Stripe owns the billing relationship and the end of the trial.
+      const current = await this.prisma.subscription.findUnique({ where: { tenantId } });
+      const isFirstCheckout =
+        !current || current.status === SubscriptionStatus.TRIALING || current.planCode === "TRIAL";
+      const trialPeriodDays = isFirstCheckout ? (this.config.get<number>("TRIAL_DAYS") ?? 3) : 0;
+
       const session = await this.stripe.createCheckoutSession({
         customerEmail: adminUser?.email ?? "",
         tenantId,
         priceId: plan.stripePriceId,
         planCode: plan.code,
+        trialPeriodDays,
         successUrl: `${appUrl}/billing?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${appUrl}/billing?canceled=true`,
       });

@@ -62,10 +62,11 @@ export default function PricingPage() {
   });
 
   const plans: Plan[] = data ? data[model] : [];
+  const trialDays = data?.trialDays ?? 3;
   const heading =
     model === "business"
       ? "For credit repair agencies"
-      : "For consumers repairing their credit";
+      : "For clients repairing their credit";
 
   return (
     <div className="landing-bg min-h-screen text-slate-900 dark:text-slate-100">
@@ -101,7 +102,7 @@ export default function PricingPage() {
             onChange={(v) => setModel(v as "business" | "consumer")}
             tabs={[
               { value: "business", label: "For agencies" },
-              { value: "consumer", label: "For consumers" },
+              { value: "consumer", label: "For clients" },
             ]}
           />
         </div>
@@ -122,7 +123,7 @@ export default function PricingPage() {
               <PlanCard
                 key={p.id}
                 plan={p}
-                cta={model === "business" ? { label: "Start free trial", href: "/register" } : { label: "Book a consultation", href: "/contact" }}
+                cta={{ label: "Start free trial", href: "/register" }}
               />
             ))}
           </div>
@@ -136,7 +137,7 @@ export default function PricingPage() {
             {[
               ["Can I switch plans later?", "Yes — switch anytime from the Billing page. Your invoice is issued immediately and entitlements update in real time."],
               ["What counts as an active client?", "Any client with at least one report, dispute or letter in the workspace. You can archive closed clients."],
-              ["Is there a free trial?", "Yes — every new workspace starts with a 3-day free trial with access to all features. After the trial, choose a paid plan that fits your agency."],
+              ["Is there a free trial?", `Yes — every new workspace starts with a ${trialDays}-day free trial with access to all features. After the trial, choose a paid plan that fits you.`],
               ["Does CreditOS charge consumers directly?", "No — consumer services (Kickstart, Standard, Complete, Monitoring) are sold by your agency. CreditOS bills agencies, not their clients."],
             ].map(([q, a]) => (
               <div key={q} className="rounded-xl border border-white/6 bg-white/3 p-4">
@@ -153,11 +154,11 @@ export default function PricingPage() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ready to get started?</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-500 dark:text-slate-400">
             {model === "business"
-              ?              "Spin up your agency workspace in under a minute — 3-day free trial, no credit card required."
-              : "Talk to a licensed credit repair agency about your plan today."}
+              ? `Spin up your agency workspace in under a minute — ${trialDays}-day free trial, no credit card required.`
+              : "Sign up in under a minute and take control of your credit repair — no credit card required during your trial."}
           </p>
-          <Link href={model === "business" ? "/register" : "/contact"} className="mt-8 inline-block">
-            <Button size="lg">{model === "business" ? "Start free trial" : "Find an agency"} <ArrowRight className="h-4 w-4" /></Button>
+          <Link href="/register" className="mt-8 inline-block">
+            <Button size="lg">Start your free trial <ArrowRight className="h-4 w-4" /></Button>
           </Link>
         </motion.div>
       </section>

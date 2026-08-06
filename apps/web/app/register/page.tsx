@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +16,7 @@ import { slugify } from "@/lib/utils";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { Tabs } from "@/components/ui/tabs";
 import { Building, User } from "@/components/ui/icons";
+import { api, type PricingCatalog } from "@/lib/api";
 
 const schema = z.object({
   model: z.enum(["BUSINESS", "CONSUMER"]),
@@ -33,6 +35,11 @@ export default function RegisterPage() {
   const router = useRouter();
   const { refresh } = useAuth();
   const { toast } = useToast();
+  const { data: catalog } = useQuery({
+    queryKey: ["pricing"],
+    queryFn: () => api.get<PricingCatalog>("/pricing/public"),
+  });
+  const trialDays = catalog?.trialDays ?? 3;
   const {
     register,
     handleSubmit,
@@ -46,6 +53,7 @@ export default function RegisterPage() {
 
   const model = watch("model");
   const tenantName = watch("tenantName");
+  const isAgency = model === "BUSINESS";
 
   React.useEffect(() => {
     if (tenantName && !watch("tenantSlug")) {
@@ -79,9 +87,9 @@ export default function RegisterPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {model === "BUSINESS"
-            ? "Set up your agency workspace — 3-day free trial included."
-            : "Start your credit repair journey — 3-day free trial included."}
+          {isAgency
+            ? `Set up your agency workspace — ${trialDays}-day free trial included.`
+            : `Start your credit repair journey — ${trialDays}-day free trial included.`}
         </p>
       </div>
 
@@ -91,18 +99,21 @@ export default function RegisterPage() {
           value={model}
           onChange={(v) => setValue("model", v as "BUSINESS" | "CONSUMER")}
           tabs={[
-            { value: "BUSINESS", label: "Credit repair agency" },
-            { value: "CONSUMER", label: "Consumer / client" },
+            { value: "BUSINESS", label: "Agency" },
+            { value: "CONSUMER", label: "Client" },
           ]}
         />
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
-        <Field label="Agency name" error={errors.tenantName?.message}>
-          <Input placeholder="Summit Credit Solutions" {...register("tenantName")} />
+        <Field label={isAgency ? "Agency name" : "Workspace name"} error={errors.tenantName?.message}>
+          <Input
+            placeholder={isAgency ? "Summit Credit Solutions" : "Your workspace"}
+            {...register("tenantName")}
+          />
         </Field>
-        <Field label="Agency slug" error={errors.tenantSlug?.message} hint="Used in your workspace URL">
-          <Input placeholder="summit-credit" {...register("tenantSlug")} />
+        <Field label={isAgency ? "Agency slug" : "Workspace slug"} error={errors.tenantSlug?.message} hint="Used in your workspace URL">
+          <Input placeholder={isAgency ? "summit-credit" : "my-workspace"} {...register("tenantSlug")} />
         </Field>
         <Field label="Your name" error={errors.name?.message}>
           <Input placeholder="Alex Rivera" {...register("name")} />
@@ -117,7 +128,7 @@ export default function RegisterPage() {
         </div>
         <div className="sm:col-span-2">
           <Button type="submit" loading={isSubmitting} className="w-full" size="lg">
-            {model === "BUSINESS" ? "Create workspace" : "Start free trial"}
+            {isAgency ? "Create workspace" : "Start free trial"}
           </Button>
         </div>
       </form>

@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 
 const PASSWORD = "Password123!";
 
-async function upsertTenant(slug: string, name: string, brandColor: string, plan: TenantPlan = TenantPlan.FREE) {
+async function upsertTenant(slug: string, name: string, brandColor: string, plan: TenantPlan = TenantPlan.TRIAL) {
   return prisma.tenant.upsert({
     where: { slug },
     update: { plan },
@@ -767,7 +767,7 @@ const ARTICLES: Array<{ slug: string; title: string; category: string; excerpt: 
     category: "billing",
     excerpt: "How subscriptions, invoices, trials and seat limits work.",
     order: 1,
-    body: "New workspaces start with a 3-day free trial — explore all features with no commitment. After the trial, choose a plan (Starter, Professional, Business, or Enterprise) from the Billing page. Switch plans anytime — the invoice is generated immediately and your feature entitlements update. Plan limits include active clients and workspace seats.",
+    body: "New workspaces start with a free trial — explore all features with no commitment. After the trial, choose a plan (Starter, Professional, Business, or Enterprise) from the Billing page. Switch plans anytime — the invoice is generated immediately and your feature entitlements update. Plan limits include active clients and workspace seats.",
   },
   {
     slug: "compliance-disclosures",

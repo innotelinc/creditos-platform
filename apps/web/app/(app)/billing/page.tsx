@@ -69,8 +69,8 @@ export default function BillingPage() {
   });
 
   const sub = data?.subscription;
-  const currentCode = sub?.planCode ?? data?.tenant.plan ?? "FREE";
-  const plans: Plan[] = (catalog?.business ?? []).filter((p) => p.code !== "FREE");
+  const currentCode = sub?.planCode ?? data?.tenant.plan ?? "TRIAL";
+  const plans: Plan[] = catalog?.business ?? [];
   const entitlements = data?.entitlements ?? [];
 
   return (
@@ -95,7 +95,9 @@ export default function BillingPage() {
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle>Current plan</CardTitle>
-                  <CardDescription>Business model subscription (local payment mode)</CardDescription>
+                  <CardDescription>
+                    {sub?.provider === "stripe" ? "Billed and managed through Stripe" : "Trial then paid plans — local/simulated billing mode"}
+                  </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   {sub?.status === "TRIALING" && sub?.trialEndsAt && (

@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { TenantPlan } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
  * Feature entitlements per tenant plan (business model). Used for plan gating
  * (e.g. CRM requires BUSINESS) and surfaced to the Billing page.
+ * There are no free plans — every workspace starts on TRIAL, then a paid plan.
  */
 const ENTITLEMENTS: Record<TenantPlan, string[]> = {
-  FREE: ["reports", "analysis", "letters", "disputes"],
   TRIAL: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation", "crm", "api", "white_label"],
   STARTER: ["reports", "analysis", "letters", "disputes", "client_portal"],
   PROFESSIONAL: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation"],
@@ -17,11 +18,19 @@ const ENTITLEMENTS: Record<TenantPlan, string[]> = {
 
 @Injectable()
 export class PricingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
-  /** Feature set granted by a tenant plan. */
+  /** Length of the signup trial in days (editable via TRIAL_DAYS). */
+  trialDays(): number {
+    return this.config.get<number>("TRIAL_DAYS") ?? 3;
+  }
+
+  /** Feature set granted by a tenant plan. Fail-closed for unknown plans. */
   entitlements(plan: TenantPlan): string[] {
-    return ENTITLEMENTS[plan] ?? ENTITLEMENTS.FREE;
+    return ENTITLEMENTS[plan] ?? [];
   }
 
   /** True when the tenant's plan grants the given feature. */
@@ -30,15 +39,16 @@ export class PricingService {
   }
 
   /** Public catalog: active plans grouped by model, ordered for display.
-   *  Excludes legacy FREE plans — all plans are paid with a 3-day trial. */
+   *  No free plans — access starts with a configurable trial, then paid plans. */
   async catalog() {
     const plans = await this.prisma.plan.findMany({
-      where: { isActive: true, code: { not: "FREE" } },
+      where: { isActive: true },
       orderBy: [{ model: "asc" }, { sortOrder: "asc" }],
     });
     return {
       business: plans.filter((p) => p.model === "BUSINESS"),
       consumer: plans.filter((p) => p.model === "CONSUMER"),
+      trialDays: this.trialDays(),
     };
   }
 

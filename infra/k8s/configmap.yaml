@@ -16,6 +16,7 @@ data:
   AI_MODEL: deepseek/deepseek-chat
   AI_TIMEOUT_MS: "60000"
   RUN_SEED: "false"
+  TRIAL_DAYS: "3"
   APP_URL: https://creditos.example.com
   NEST_API_URL: http://api:3001
   CORS_ORIGINS: https://creditos.example.com

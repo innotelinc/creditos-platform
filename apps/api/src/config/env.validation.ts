@@ -39,6 +39,7 @@ const envSchema = z.object({
   AI_MODEL: z.string().default("deepseek/deepseek-chat"),
   AI_TIMEOUT_MS: z.coerce.number().default(60000),
   RUN_SEED: z.string().optional().default("false"),
+  TRIAL_DAYS: z.coerce.number().int().min(0).default(3),
   STRIPE_SECRET_KEY: z.string().optional().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(""),
 });

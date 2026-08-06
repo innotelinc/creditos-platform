@@ -90,6 +90,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       RUN_SEED: ${RUN_SEED:-true}
+      TRIAL_DAYS: ${TRIAL_DAYS:-3}
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:

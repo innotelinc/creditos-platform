@@ -80,22 +80,39 @@ export class StripeWebhookController {
     const subId = session.subscription as string;
     const customerId = session.customer as string;
 
+    // The subscription may still be in its Stripe trial (trialing) when the
+    // checkout completes — carry over the Stripe trial period so the billing
+    // page shows the correct status and trial end date.
+    let status: SubscriptionStatus = SubscriptionStatus.ACTIVE;
+    let trialEndsAt: Date | null = null;
+    if (subId && this.stripe.client) {
+      try {
+        const stripeSub = await this.stripe.client.subscriptions.retrieve(subId);
+        if (stripeSub.status === "trialing") {
+          status = SubscriptionStatus.TRIALING;
+          trialEndsAt = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not retrieve Stripe subscription ${subId}: ${err?.message}`);
+      }
+    }
+
     await this.prisma.subscription.upsert({
       where: { tenantId },
       update: {
         planCode,
-        status: SubscriptionStatus.ACTIVE,
+        status,
         provider: "stripe",
         providerRef: subId,
-        trialEndsAt: null,
+        trialEndsAt,
       },
       create: {
         tenantId,
         planCode,
-        status: SubscriptionStatus.ACTIVE,
+        status,
         provider: "stripe",
         providerRef: subId,
-        trialEndsAt: null,
+        trialEndsAt,
       },
     });
 
@@ -129,12 +146,14 @@ export class StripeWebhookController {
     };
 
     const newStatus = statusMap[sub.status] ?? SubscriptionStatus.ACTIVE;
+    const trialEndsAt = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
 
     await this.prisma.subscription.update({
       where: { id: existing.id },
       data: {
         status: newStatus,
         currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
+        trialEndsAt: newStatus === SubscriptionStatus.TRIALING ? trialEndsAt : null,
       },
     });
 

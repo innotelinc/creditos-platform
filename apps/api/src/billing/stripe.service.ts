@@ -37,10 +37,18 @@ export class StripeService implements OnModuleInit {
     tenantId: string;
     priceId: string;
     planCode: string;
+    trialPeriodDays?: number;
     successUrl: string;
     cancelUrl: string;
   }): Promise<{ url: string; sessionId: string }> {
     if (!this._client) throw new Error("Stripe is not configured");
+
+    // When trialPeriodDays > 0 the subscription is created with a Stripe trial
+    // (trial runs through Stripe billing — no charge until it ends).
+    const subscriptionData =
+      params.trialPeriodDays && params.trialPeriodDays > 0
+        ? { trial_period_days: params.trialPeriodDays }
+        : undefined;
 
     const session = await this._client.checkout.sessions.create({
       mode: "subscription",
@@ -48,6 +56,7 @@ export class StripeService implements OnModuleInit {
       customer_email: params.customerEmail,
       line_items: [{ price: params.priceId, quantity: 1 }],
       metadata: { tenantId: params.tenantId, planCode: params.planCode },
+      subscription_data: subscriptionData,
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
     });

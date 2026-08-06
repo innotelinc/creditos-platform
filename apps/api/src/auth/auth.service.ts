@@ -67,9 +67,10 @@ export class AuthService {
       },
     });
 
-    // Start a 3-day trial for new tenants
+    const trialDays = this.config.get<number>("TRIAL_DAYS") ?? 3;
+    // Start a trial for new tenants (length configurable via TRIAL_DAYS)
     if (tenant.plan === TenantPlan.TRIAL && userCount === 0) {
-      const trialEnds = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      const trialEnds = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
       await this.prisma.subscription.create({
         data: {
           tenantId: tenant.id,
@@ -79,13 +80,13 @@ export class AuthService {
           trialEndsAt: trialEnds,
         },
       });
-      this.logger.log(`Started 3-day trial for ${tenant.slug} (ends ${trialEnds.toISOString()})`);
+      this.logger.log(`Started ${trialDays}-day trial for ${tenant.slug} (ends ${trialEnds.toISOString()})`);
     }
 
     await this.mail.send(
       user.email,
       "Welcome to CreditOS",
-      `<p>Hi ${user.name},</p><p>Your <strong>${tenant.name}</strong> account is ready. You have a 3-day free trial to explore all features. Sign in at ${this.config.get("APP_URL")}/login.</p>`,
+      `<p>Hi ${user.name},</p><p>Your <strong>${tenant.name}</strong> account is ready. You have a ${trialDays}-day free trial to explore all features. Sign in at ${this.config.get("APP_URL")}/login.</p>`,
     );
 
     return this.issueTokens(user, ip, userAgent);

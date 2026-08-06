@@ -54,7 +54,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative mx-auto max-w-7xl px-6 pt-20 pb-16 text-center sm:pt-28">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <Badge className="mb-6 px-3 py-1 text-xs">Built for credit repair agencies & consumers</Badge>
+          <Badge className="mb-6 px-3 py-1 text-xs">Built for credit repair agencies & clients</Badge>
           <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight sm:text-6xl">
             The AI operating system for{" "}
             <span className="text-gradient">credit repair</span>

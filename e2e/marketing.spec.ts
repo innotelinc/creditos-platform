@@ -11,9 +11,9 @@ test.describe("Marketing & pricing", () => {
       await expect(page.getByText(plan, { exact: true }).first()).toBeVisible();
     }
 
-    // Consumer model tab
-    await page.getByRole("tab", { name: /for consumers/i }).click();
-    await expect(page.getByText("For consumers repairing their credit")).toBeVisible();
+    // Client model tab
+    await page.getByRole("tab", { name: /for clients/i }).click();
+    await expect(page.getByText("For clients repairing their credit")).toBeVisible();
     for (const plan of ["Kickstart", "Standard Repair", "Complete Repair", "Credit Monitoring"]) {
       await expect(page.getByText(plan, { exact: true }).first()).toBeVisible();
     }
