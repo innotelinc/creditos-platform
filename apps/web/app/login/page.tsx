@@ -65,7 +65,7 @@ function LoginForm() {
       }
       await refresh();
       toast({ type: "success", title: "Welcome back" });
-      router.push(params.get("next") ?? "/dashboard");
+      router.push(params?.get("next") ?? "/dashboard");
       router.refresh();
     } catch (err) {
       toast({ type: "error", title: "Sign in failed", description: (err as Error).message });

@@ -22,7 +22,7 @@ import { ArrowRight, Check, Gavel, Mail, RefreshCw } from "@/components/ui/icons
 const roundStatusSteps = ["SENT", "DELIVERED", "RECEIVED", "RESPONSE_RECEIVED"];
 
 export default function DisputeDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>() ?? { id: "" };
   const { isStaff } = useRole();
   const qc = useQueryClient();
   const { toast } = useToast();

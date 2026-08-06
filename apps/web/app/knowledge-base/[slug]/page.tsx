@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function KnowledgeArticlePage() {
-  const params = useParams<{ slug: string }>();
+  const params = useParams<{ slug: string }>() ?? { slug: "" };
   const { data, isLoading } = useQuery({
     queryKey: ["knowledge", params.slug],
     queryFn: () => api.get<KnowledgeArticle>(`/knowledge/articles/${params.slug}`),

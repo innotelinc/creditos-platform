@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/utils";
 import { ArrowRight, Download, FileText, History, Send, Sparkles } from "@/components/ui/icons";
 
 export default function LetterDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>() ?? { id: "" };
   const { isStaff } = useRole();
   const qc = useQueryClient();
   const { toast } = useToast();

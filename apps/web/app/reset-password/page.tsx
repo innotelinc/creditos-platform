@@ -22,7 +22,7 @@ const schema = z
 
 function ResetForm() {
   const params = useSearchParams();
-  const token = params.get("token") ?? "";
+  const token = params?.get("token") ?? "";
   const { toast } = useToast();
   const [done, setDone] = React.useState(false);
   const {

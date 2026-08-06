@@ -30,7 +30,7 @@ const severityStyles = {
 };
 
 export default function ReportDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>() ?? { id: "" };
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["report", id],
