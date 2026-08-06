@@ -12,6 +12,11 @@ COPY --from=deps /app/node_modules ./node_modules
 # Keep the lockfile so Next.js detects the npm workspace and emits the
 # workspace-nested standalone layout (apps/web/server.js).
 COPY package.json package-lock.json* tsconfig.base.json ./
+# npm keeps some packages (e.g. @hookform/resolvers, which declares many
+# optional peer deps) nested under the workspace's own node_modules instead of
+# hoisting them to the root. Preserve those from the deps stage before
+# overlaying the source, otherwise the web build can't resolve them.
+COPY --from=deps /app/apps ./apps
 COPY apps/web ./apps/web
 RUN cd apps/web && npm run build
 

@@ -10,6 +10,9 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.base.json ./
+# Preserve any workspace-local node_modules npm created under apps/ (it nests
+# packages there when they can't be hoisted, e.g. optional-peer-heavy ones).
+COPY --from=deps /app/apps ./apps
 COPY apps/api ./apps/api
 RUN cd apps/api && npx prisma generate && npm run build
 
