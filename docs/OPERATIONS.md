@@ -1,5 +1,25 @@
 # Operations Guide
 
+## Stripe billing
+
+Checkout runs through Stripe Checkout when `STRIPE_SECRET_KEY` is set and the
+chosen plan has a Stripe Price ID; otherwise billing falls back to
+local/simulated mode. Price IDs are wired up by the seed:
+
+- Explicit overrides win: `STRIPE_PRICE_<CODE>` env vars, e.g.
+  `STRIPE_PRICE_STARTER=price_...`, `STRIPE_PRICE_PROFESSIONAL=price_...`,
+  `STRIPE_PRICE_BUSINESS=price_...`, `STRIPE_PRICE_ENTERPRISE=price_...`
+  (consumer plans can use the same pattern, e.g. `STRIPE_PRICE_KICKSTART`).
+- When a price ID is not provided but `STRIPE_SECRET_KEY` is set, the seed
+  creates the product + monthly price in Stripe automatically (idempotent —
+  it looks up products by the `creditos_plan_code` metadata and reuses them).
+  Only billable business plans (monthly, non-custom) are auto-created;
+  Enterprise (`Custom` pricing) and consumer plans are skipped.
+
+`STRIPE_WEBHOOK_SECRET` must be configured for subscription lifecycle events
+(`checkout.session.completed`, `customer.subscription.*`, `invoice.paid`) to
+update local subscriptions; see `apps/api/src/billing/stripe.webhook.controller.ts`.
+
 ## Backups (PostgreSQL)
 
 Local (Docker): a nightly pg_dump job can be added with:

@@ -6,6 +6,7 @@
  */
 import { PrismaClient, Role, UserStatus, Bureau, DisputeStatus, RoundStatus, TaskStatus, TaskPriority, NotificationType, LetterStatus, TenantPlan, PlanModel, PlanInterval, SubscriptionStatus, InvoiceStatus, CrmStage, CrmActivityType } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+import Stripe from "stripe";
 
 const prisma = new PrismaClient();
 
@@ -619,18 +620,116 @@ const CONSUMER_PLANS = [
   },
 ];
 
+// ── Stripe price wiring ────────────────────────────────────────────────────
+// Plans are seeded with a Stripe Price ID so `POST /billing/checkout` can
+// create real Stripe Checkout Sessions. Resolution order per plan:
+//   1. STRIPE_PRICE_<CODE> env var (explicit — always wins)
+//   2. Auto-created via the Stripe API when STRIPE_SECRET_KEY is set
+//      (billable business plans only; idempotent via product metadata)
+// Without a Stripe key, plans keep their stored value (null by default) and
+// billing falls back to local/simulated mode.
+
+interface SeedPlan {
+  model: PlanModel;
+  code: string;
+  name: string;
+  priceCents: number;
+  interval: PlanInterval;
+}
+
+let stripeClient: Stripe | null | undefined;
+function getStripeClient(): Stripe | null {
+  if (stripeClient !== undefined) return stripeClient;
+  const key = process.env.STRIPE_SECRET_KEY;
+  stripeClient = key ? new Stripe(key, { apiVersion: "2025-06-16.basil" as Stripe.LatestApiVersion }) : null;
+  return stripeClient;
+}
+
+/** Reuse an existing Stripe price for the plan, or create product + price. */
+async function ensureStripePrice(stripe: Stripe, plan: SeedPlan): Promise<string> {
+  // Pagination-safe lookup of the plan's product by metadata.
+  const results = await stripe.products.search({
+    query: `metadata["creditos_plan_code"]:"${plan.code}"`,
+    limit: 10,
+  });
+  const existing = results.data.find((prod) => prod.active);
+
+  if (existing) {
+    const prices = await stripe.prices.list({ product: existing.id, active: true, limit: 20 });
+    // Reuse only if the price matches both the interval and the current amount;
+    // Stripe prices are immutable, so a changed priceCents creates a new price.
+    const match = prices.data.find(
+      (price) =>
+        price.unit_amount === plan.priceCents &&
+        (plan.interval === PlanInterval.MONTH ? price.recurring?.interval === "month" : !price.recurring),
+    );
+    if (match) return match.id;
+  }
+
+  const product =
+    existing ??
+    (await stripe.products.create({
+      name: plan.name,
+      description: `CreditOS ${plan.code} plan`,
+      metadata: { creditos_plan_code: plan.code },
+    }));
+
+  const price = await stripe.prices.create({
+    product: product.id,
+    currency: "usd",
+    unit_amount: plan.priceCents,
+    recurring: plan.interval === PlanInterval.MONTH ? { interval: "month" } : undefined,
+    metadata: { creditos_plan_code: plan.code },
+  });
+  return price.id;
+}
+
+/**
+ * Resolve the Stripe Price ID for a seeded plan.
+ * Returns `undefined` when nothing should change (keeps the stored value).
+ */
+async function resolveStripePriceId(plan: SeedPlan): Promise<string | undefined> {
+  const fromEnv = process.env[`STRIPE_PRICE_${plan.code}`];
+  if (fromEnv) return fromEnv;
+
+  const stripe = getStripeClient();
+  const isBillable =
+    plan.model === PlanModel.BUSINESS && plan.priceCents > 0 && plan.interval === PlanInterval.MONTH;
+  if (stripe && isBillable) {
+    try {
+      return await ensureStripePrice(stripe, plan);
+    } catch (err) {
+      console.warn(`[seed] Could not sync Stripe price for ${plan.code}:`, (err as Error).message);
+    }
+  }
+  return undefined;
+}
+
 async function seedPlans() {
-  const plans = [
+  // No free plans — drop any legacy FREE plan rows left by older seeds.
+  await prisma.plan.deleteMany({ where: { code: "FREE" } });
+
+  const plans: SeedPlan[] = [
     ...BUSINESS_PLANS.map((p) => ({ ...p, model: PlanModel.BUSINESS })),
     ...CONSUMER_PLANS.map((p) => ({ ...p, model: PlanModel.CONSUMER })),
   ];
   for (const p of plans) {
     const key = { model_code: { model: p.model, code: p.code } };
+    const stripePriceId = await resolveStripePriceId(p);
     const existing = await prisma.plan.findUnique({ where: key });
     if (existing) {
-      await prisma.plan.update({ where: key, data: { ...p, model: undefined } });
+      await prisma.plan.update({
+        where: key,
+        data: {
+          ...p,
+          model: undefined,
+          ...(stripePriceId !== undefined ? { stripePriceId } : {}),
+        },
+      });
     } else {
-      await prisma.plan.create({ data: p });
+      await prisma.plan.create({
+        data: { ...p, ...(stripePriceId !== undefined ? { stripePriceId } : {}) },
+      });
     }
   }
 }

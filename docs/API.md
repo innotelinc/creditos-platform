@@ -24,7 +24,7 @@ Base URL: `http://localhost:3001/v1` · Auth: `Authorization: Bearer <accessToke
 | Admin           | `GET /admin/tenants` `GET /admin/stats`                   | super admin / admin                    |
 | Pricing         | `GET /pricing/public`                                     | public catalog: business + consumer    |
 |                 | `GET/POST /pricing` `PATCH/DELETE /pricing/:id`           | admin plan management                  |
-| Billing         | `GET /billing/summary` `POST /billing/checkout` `POST /billing/cancel` | local payment mode (Stripe-ready) |
+| Billing         | `GET /billing/summary` `POST /billing/checkout` `POST /billing/cancel` | Stripe Checkout when key + price IDs are set, else local/simulated |
 | CRM             | `GET /crm/pipeline` `GET/POST /crm/leads` `GET/PATCH /crm/leads/:id` `POST /crm/leads/:id/activities` | plan-gated (Business+) |
 | Knowledge       | `GET /knowledge/articles` `GET /knowledge/categories` `GET /knowledge/articles/:slug` | public help center |
 |                 | `POST /knowledge/articles` `PATCH /knowledge/articles/:id` | admin content management          |
