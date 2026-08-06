@@ -15,5 +15,5 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     return NextResponse.json(data ?? { message: "Registration failed" }, { status: res.status });
   }
-  return withSessionCookies(data);
+  return withSessionCookies(req, data);
 }

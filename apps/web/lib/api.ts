@@ -225,6 +225,7 @@ export interface Plan {
   isActive: boolean;
   sortOrder: number;
   features: string[];
+  stripePriceId: string | null;
 }
 
 export interface PricingCatalog {
@@ -239,6 +240,7 @@ export interface SubscriptionInfo {
   seats: number;
   provider: string;
   currentPeriodEnd: string | null;
+  trialEndsAt: string | null;
 }
 
 export interface Invoice {

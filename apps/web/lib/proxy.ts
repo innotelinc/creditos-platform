@@ -8,11 +8,20 @@ export const isProd = process.env.NODE_ENV === "production";
 export const ACCESS_TTL = Number(process.env.JWT_ACCESS_TTL ?? 900);
 export const REFRESH_TTL = Number(process.env.JWT_REFRESH_TTL ?? 2592000);
 
-function cookieOpts(maxAge: number) {
+/** Detect whether the client connection is secure (HTTPS) by checking
+ *  x-forwarded-proto, the request URL, or falling back to isProd. */
+export function isSecureRequest(req?: NextRequest): boolean {
+  if (!req) return isProd;
+  const proto = req.headers.get("x-forwarded-proto");
+  if (proto) return proto === "https";
+  return req.nextUrl.protocol === "https:" || isProd;
+}
+
+function cookieOpts(maxAge: number, secure: boolean) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: isProd,
+    secure,
     path: "/",
     maxAge,
   };
@@ -82,6 +91,7 @@ async function callRefresh(refreshToken: string): Promise<{ accessToken: string;
  * 3. cookie refreshes are returned as Set-Cookie headers.
  */
 export async function proxyToBackend(req: NextRequest, path: string): Promise<NextResponse> {
+  const secure = isSecureRequest(req);
   const { access, refresh } = readTokens(req);
 
   let backendRes = await forward(req, path, access);
@@ -93,7 +103,7 @@ export async function proxyToBackend(req: NextRequest, path: string): Promise<Ne
       const headers = new Headers(backendRes.headers);
       headers.set(
         "Set-Cookie",
-        `${ACCESS_COOKIE}=${rotated.accessToken}; ${serializeOpts(ACCESS_TTL)}; ${REFRESH_COOKIE}=${rotated.refreshToken}; ${serializeOpts(REFRESH_TTL)}`,
+        `${ACCESS_COOKIE}=${rotated.accessToken}; ${serializeOpts(ACCESS_TTL, secure)}; ${REFRESH_COOKIE}=${rotated.refreshToken}; ${serializeOpts(REFRESH_TTL, secure)}`,
       );
       return new NextResponse(await backendRes.text(), {
         status: backendRes.status,
@@ -107,7 +117,7 @@ export async function proxyToBackend(req: NextRequest, path: string): Promise<Ne
     // Session is dead — clear both cookies.
     headers.set(
       "Set-Cookie",
-      `${ACCESS_COOKIE}=; Max-Age=0; Path=/; HttpOnly; ${isProd ? "Secure; " : ""}SameSite=Lax; ${REFRESH_COOKIE}=; Max-Age=0; Path=/; HttpOnly; ${isProd ? "Secure; " : ""}SameSite=Lax`,
+      `${ACCESS_COOKIE}=; Max-Age=0; Path=/; HttpOnly; ${secure ? "Secure; " : ""}SameSite=Lax; ${REFRESH_COOKIE}=; Max-Age=0; Path=/; HttpOnly; ${secure ? "Secure; " : ""}SameSite=Lax`,
     );
   }
   return new NextResponse(await backendRes.text(), {
@@ -116,21 +126,23 @@ export async function proxyToBackend(req: NextRequest, path: string): Promise<Ne
   });
 }
 
-export function serializeOpts(maxAge: number): string {
-  return `Path=/; HttpOnly; Max-Age=${maxAge}; ${isProd ? "Secure; " : ""}SameSite=Lax`;
+export function serializeOpts(maxAge: number, secure: boolean): string {
+  return `Path=/; HttpOnly; Max-Age=${maxAge}; ${secure ? "Secure; " : ""}SameSite=Lax`;
 }
 
-/** For login/register: attach tokens from the response body as httpOnly cookies. */
-export function withSessionCookies(json: unknown, status = 200): NextResponse {
+/** For login/register: attach tokens from the response body as httpOnly cookies.
+ *  Accepts the request so we can determine the correct Secure flag. */
+export function withSessionCookies(req: NextRequest, json: unknown, status = 200): NextResponse {
+  const secure = isSecureRequest(req);
   const data = json as { accessToken?: string; refreshToken?: string };
   const headers = new Headers();
   if (data.accessToken) {
-    headers.set("Set-Cookie", `${ACCESS_COOKIE}=${data.accessToken}; ${serializeOpts(ACCESS_TTL)}`);
+    headers.set("Set-Cookie", `${ACCESS_COOKIE}=${data.accessToken}; ${serializeOpts(ACCESS_TTL, secure)}`);
   }
   if (data.refreshToken) {
     headers.append(
       "Set-Cookie",
-      `${REFRESH_COOKIE}=${data.refreshToken}; ${serializeOpts(REFRESH_TTL)}`,
+      `${REFRESH_COOKIE}=${data.refreshToken}; ${serializeOpts(REFRESH_TTL, secure)}`,
     );
   }
   const safe = { ...data };

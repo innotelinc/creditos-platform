@@ -27,7 +27,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
-            <Link href="/register"><Button size="sm">Start free</Button></Link>
+            <Link href="/register"><Button size="sm">Start free trial</Button></Link>
           </div>
         </div>
       </header>

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { Role, User, UserStatus } from "@prisma/client";
+import { Role, User, UserStatus, TenantPlan, SubscriptionStatus } from "@prisma/client";
 import { authenticator } from "otplib";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
@@ -40,7 +40,9 @@ export class AuthService {
   async register(dto: RegisterDto, ip?: string, userAgent?: string): Promise<AuthResult> {
     let tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.tenantSlug } });
     if (!tenant) {
-      tenant = await this.prisma.tenant.create({ data: { name: dto.tenantName, slug: dto.tenantSlug } });
+      tenant = await this.prisma.tenant.create({
+        data: { name: dto.tenantName, slug: dto.tenantSlug, plan: TenantPlan.TRIAL },
+      });
       this.logger.log(`Created tenant ${tenant.slug}`);
     }
 
@@ -52,21 +54,38 @@ export class AuthService {
     const userCount = await this.prisma.user.count({ where: { tenantId: tenant.id } });
     const passwordHash = await bcrypt.hash(dto.password, 12);
     // First user of a tenant becomes ADMIN — practical bootstrap for new agencies.
+    // Consumer signups (model=CONSUMER) are always CLIENT.
+    const role = dto.model === "CONSUMER" || userCount > 0 ? Role.CLIENT : Role.ADMIN;
     const user = await this.prisma.user.create({
       data: {
         tenantId: tenant.id,
         email: dto.email.toLowerCase(),
         name: dto.name,
         passwordHash,
-        role: userCount === 0 ? Role.ADMIN : Role.CLIENT,
+        role,
         status: UserStatus.ACTIVE,
       },
     });
 
+    // Start a 3-day trial for new tenants
+    if (tenant.plan === TenantPlan.TRIAL && userCount === 0) {
+      const trialEnds = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      await this.prisma.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          planCode: "TRIAL",
+          status: SubscriptionStatus.TRIALING,
+          provider: "local",
+          trialEndsAt: trialEnds,
+        },
+      });
+      this.logger.log(`Started 3-day trial for ${tenant.slug} (ends ${trialEnds.toISOString()})`);
+    }
+
     await this.mail.send(
       user.email,
       "Welcome to CreditOS",
-      `<p>Hi ${user.name},</p><p>Your <strong>${tenant.name}</strong> account is ready. Sign in at ${this.config.get("APP_URL")}/login.</p>`,
+      `<p>Hi ${user.name},</p><p>Your <strong>${tenant.name}</strong> account is ready. You have a 3-day free trial to explore all features. Sign in at ${this.config.get("APP_URL")}/login.</p>`,
     );
 
     return this.issueTokens(user, ip, userAgent);

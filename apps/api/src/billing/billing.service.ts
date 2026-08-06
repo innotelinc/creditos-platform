@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InvoiceStatus, SubscriptionStatus, TenantPlan } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { TenancyService } from "../common/tenancy";
 import { PricingService } from "../pricing/pricing.service";
 import { AuditService } from "../audit/audit.service";
+import { StripeService } from "./stripe.service";
 
 @Injectable()
 export class BillingService {
@@ -12,6 +14,8 @@ export class BillingService {
     private readonly tenancy: TenancyService,
     private readonly pricing: PricingService,
     private readonly audit: AuditService,
+    private readonly stripe: StripeService,
+    private readonly config: ConfigService,
   ) {}
 
   async summary() {
@@ -37,10 +41,35 @@ export class BillingService {
     };
   }
 
+  /** Start a 3-day trial for a newly registered tenant. */
+  async startTrial(tenantId: string): Promise<void> {
+    const trialEnds = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    await this.prisma.subscription.upsert({
+      where: { tenantId },
+      update: {
+        planCode: "TRIAL",
+        status: SubscriptionStatus.TRIALING,
+        provider: "local",
+        trialEndsAt: trialEnds,
+      },
+      create: {
+        tenantId,
+        planCode: "TRIAL",
+        status: SubscriptionStatus.TRIALING,
+        provider: "local",
+        trialEndsAt: trialEnds,
+      },
+    });
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { plan: TenantPlan.TRIAL },
+    });
+  }
+
   /**
-   * Start / switch a subscription. In local mode the payment is simulated and
-   * the invoice is issued as PAID. Set STRIPE_SECRET_KEY + STRIPE_PRICE_* to
-   * route through a real provider (adapter stub left in place for that).
+   * Start / switch a subscription. When Stripe is configured, creates a
+   * Checkout Session and returns the URL for the frontend to redirect to.
+   * Falls back to local/simulated mode when STRIPE_SECRET_KEY is not set.
    */
   async checkout(input: { planCode: string; interval?: string; seats?: number }) {
     const tenantId = this.tenancy.getTenantId();
@@ -49,6 +78,27 @@ export class BillingService {
     });
     if (!plan) throw new NotFoundException(`Business plan "${input.planCode}" not found`);
 
+    // ── Stripe mode ──────────────────────────────────────────────────
+    if (this.stripe.isConfigured && plan.stripePriceId) {
+      const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+      const adminUser = await this.prisma.user.findFirst({
+        where: { tenantId, role: "ADMIN" },
+      });
+      const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+
+      const session = await this.stripe.createCheckoutSession({
+        customerEmail: adminUser?.email ?? "",
+        tenantId,
+        priceId: plan.stripePriceId,
+        planCode: plan.code,
+        successUrl: `${appUrl}/billing?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${appUrl}/billing?canceled=true`,
+      });
+
+      return { url: session.url, provider: "stripe" };
+    }
+
+    // ── Local / simulated mode ───────────────────────────────────────
     const now = new Date();
     const periodEnd = new Date(now);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
@@ -61,6 +111,7 @@ export class BillingService {
         seats: input.seats ?? 1,
         provider: "local",
         currentPeriodEnd: periodEnd,
+        trialEndsAt: null,
       },
       create: {
         tenantId,
@@ -69,6 +120,7 @@ export class BillingService {
         seats: input.seats ?? 1,
         provider: "local",
         currentPeriodEnd: periodEnd,
+        trialEndsAt: null,
       },
     });
 
@@ -84,7 +136,7 @@ export class BillingService {
         number: `INV-${now.getFullYear()}-${String(count + 1).padStart(4, "0")}`,
         description: `${plan.name} — monthly subscription`,
         amountCents: plan.priceCents,
-        status: InvoiceStatus.PAID, // local mode: payment simulated
+        status: InvoiceStatus.PAID,
         periodStart: now,
         periodEnd,
         paidAt: now,
@@ -111,7 +163,6 @@ export class BillingService {
       where: { tenantId, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING, SubscriptionStatus.PAST_DUE] } },
       data: { status: SubscriptionStatus.CANCELED },
     });
-    await this.prisma.tenant.update({ where: { id: tenantId }, data: { plan: TenantPlan.FREE } });
     await this.audit.log({ action: "billing.canceled", entity: "Subscription", entityId: tenantId });
     return { success: subscription.count > 0 };
   }

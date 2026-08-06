@@ -33,7 +33,7 @@ export class BillingController {
 
   @Post("checkout")
   @Permissions("adminAll")
-  @ApiOperation({ summary: "Start or switch a business subscription (local mode simulates payment)" })
+  @ApiOperation({ summary: "Start or switch a subscription. Returns a Stripe Checkout URL when Stripe is configured, or processes locally." })
   checkout(@Body() dto: CheckoutDto) {
     return this.billing.checkout(dto);
   }

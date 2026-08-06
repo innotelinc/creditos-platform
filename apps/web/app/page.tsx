@@ -45,7 +45,7 @@ export default function LandingPage() {
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
             <Link href="/register">
-              <Button size="sm">Start free</Button>
+              <Button size="sm">Start free trial</Button>
             </Link>
           </div>
         </div>
@@ -300,7 +300,7 @@ export default function LandingPage() {
               </ul>
               <Link href="/register" className="mt-6 block">
                 <Button variant={p.featured ? "default" : "outline"} className="w-full">
-                  Start free
+                  Start free trial
                 </Button>
               </Link>
             </motion.div>

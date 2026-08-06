@@ -39,8 +39,13 @@ export default function BillingPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: (planCode: string) => api.post<{ success: boolean; invoice: { number: string } }>("/billing/checkout", { planCode }),
-    onSuccess: (res, planCode) => {
+    mutationFn: (planCode: string) => api.post<{ url?: string; success?: boolean; invoice?: { number: string } }>("/billing/checkout", { planCode }),
+    onSuccess: (res) => {
+      if (res.url) {
+        // Stripe mode — redirect to checkout
+        window.location.href = res.url;
+        return;
+      }
       toast({ type: "success", title: "Plan updated", description: `Invoice ${res.invoice?.number ?? ""} issued.` });
       qc.invalidateQueries({ queryKey: ["billing"] });
       qc.invalidateQueries({ queryKey: ["pricing"] });
@@ -51,7 +56,7 @@ export default function BillingPage() {
   const cancel = useMutation({
     mutationFn: () => api.post<{ success: boolean }>("/billing/cancel", {}),
     onSuccess: () => {
-      toast({ type: "info", title: "Subscription canceled", description: "Workspace downgraded to Free." });
+      toast({ type: "info", title: "Subscription canceled" });
       qc.invalidateQueries({ queryKey: ["billing"] });
     },
     onError: (err: Error) => toast({ type: "error", title: "Cancel failed", description: err.message }),
@@ -59,7 +64,7 @@ export default function BillingPage() {
 
   const sub = data?.subscription;
   const currentCode = sub?.planCode ?? data?.tenant.plan ?? "FREE";
-  const plans: Plan[] = catalog?.business ?? [];
+  const plans: Plan[] = (catalog?.business ?? []).filter((p) => p.code !== "FREE");
   const entitlements = data?.entitlements ?? [];
 
   return (
@@ -86,9 +91,16 @@ export default function BillingPage() {
                   <CardTitle>Current plan</CardTitle>
                   <CardDescription>Business model subscription (local payment mode)</CardDescription>
                 </div>
-                <Badge variant={(STATUS_STYLE[sub?.status ?? ""] ?? "neutral") as never}>
-                  {sub?.status ?? "ACTIVE"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {sub?.status === "TRIALING" && sub?.trialEndsAt && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      Trial ends {new Date(sub.trialEndsAt).toLocaleDateString()}
+                    </span>
+                  )}
+                  <Badge variant={(STATUS_STYLE[sub?.status ?? ""] ?? "neutral") as never}>
+                    {sub?.status ?? "ACTIVE"}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -154,7 +166,7 @@ export default function BillingPage() {
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
                 {plans.map((p) => {
                   const isCurrent = p.code === currentCode;
-                  const isFree = p.code === "FREE";
+                  const isTrial = sub?.status === "TRIALING" && p.code !== "TRIAL";
                   return (
                     <div
                       key={p.id}
@@ -170,17 +182,17 @@ export default function BillingPage() {
                         <p className="font-semibold">{p.name}</p>
                         {isCurrent && <Badge variant="success"><Check className="h-3 w-3" /> Current</Badge>}
                       </div>
-                      <p className="mt-2 text-2xl font-bold tracking-tight">{p.priceCents === 0 ? "Free" : money(p.priceCents)}<span className="text-xs font-normal text-slate-400">/mo</span></p>
+                      <p className="mt-2 text-2xl font-bold tracking-tight">{p.priceCents === 0 ? "Custom" : money(p.priceCents)}<span className="text-xs font-normal text-slate-400">/mo</span></p>
                       <p className="mt-2 min-h-[2.5rem] text-xs leading-relaxed text-slate-500 dark:text-slate-400">{p.description}</p>
                       <Button
                         size="sm"
-                        variant={isCurrent ? "outline" : isFree ? "outline" : "default"}
+                        variant={isCurrent ? "outline" : "default"}
                         className="mt-4"
                         disabled={isCurrent}
                         loading={checkout.isPending && checkout.variables === p.code}
                         onClick={() => checkout.mutate(p.code)}
                       >
-                        {isCurrent ? "Current plan" : isFree ? "Downgrade" : "Switch"}
+                        {isCurrent ? "Current plan" : "Switch"}
                       </Button>
                     </div>
                   );

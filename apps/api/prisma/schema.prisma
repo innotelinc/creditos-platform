@@ -98,7 +98,8 @@ enum DocumentType {
 }
 
 enum TenantPlan {
-  FREE
+  FREE     // kept for legacy tenants; not shown in catalog
+  TRIAL    // 3-day trial for new signups
   STARTER
   PROFESSIONAL
   BUSINESS
@@ -533,20 +534,21 @@ enum InvoiceStatus {
 }
 
 model Plan {
-  id          String       @id @default(cuid())
-  model       PlanModel
-  code        String
-  name        String
-  description String?
-  priceCents  Int
-  interval    PlanInterval @default(MONTH)
-  currency    String       @default("USD")
-  popular     Boolean      @default(false)
-  isActive    Boolean      @default(true)
-  sortOrder   Int          @default(0)
-  features    Json? // string[] shown on the plan card
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  model          PlanModel
+  code           String
+  name           String
+  description    String?
+  priceCents     Int
+  interval       PlanInterval @default(MONTH)
+  currency       String       @default("USD")
+  popular        Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  features       Json? // string[] shown on the plan card
+  stripePriceId  String? // Stripe Price ID for checkout sessions
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@unique([model, code])
   @@index([model, isActive, sortOrder])
@@ -557,11 +559,12 @@ model Subscription {
   tenantId         String             @unique
   tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   planCode         String
-  status           SubscriptionStatus @default(ACTIVE)
+  status           SubscriptionStatus @default(TRIALING)
   seats            Int                @default(1)
   provider         String             @default("local") // local | stripe
   providerRef      String?
   currentPeriodEnd DateTime?
+  trialEndsAt      DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 

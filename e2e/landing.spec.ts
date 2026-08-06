@@ -4,7 +4,7 @@ test.describe("Public marketing site", () => {
   test("landing page renders hero and auth links", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /sign in/i }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /start free/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /start free trial/i }).first()).toBeVisible();
     await expect(page.getByText("Your credit in motion").first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Features" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Pricing" }).first()).toBeVisible();

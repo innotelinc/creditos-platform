@@ -24,6 +24,11 @@ export class RegisterDto {
   @IsString()
   @MinLength(8, { message: "Password must be at least 8 characters" })
   password: string;
+
+  @ApiProperty({ enum: ["BUSINESS", "CONSUMER"], default: "BUSINESS", description: "Sign up as an agency (BUSINESS) or individual client (CONSUMER)" })
+  @IsOptional()
+  @IsIn(["BUSINESS", "CONSUMER"])
+  model?: "BUSINESS" | "CONSUMER";
 }
 
 export class LoginDto {

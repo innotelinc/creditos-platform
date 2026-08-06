@@ -80,7 +80,7 @@ export default function PricingPage() {
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
-            <Link href="/register"><Button size="sm">Start free</Button></Link>
+            <Link href="/register"><Button size="sm">Start free trial</Button></Link>
           </div>
         </div>
       </header>
@@ -122,7 +122,7 @@ export default function PricingPage() {
               <PlanCard
                 key={p.id}
                 plan={p}
-                cta={model === "business" ? { label: "Start free", href: "/register" } : { label: "Book a consultation", href: "/contact" }}
+                cta={model === "business" ? { label: "Start free trial", href: "/register" } : { label: "Book a consultation", href: "/contact" }}
               />
             ))}
           </div>
@@ -136,7 +136,7 @@ export default function PricingPage() {
             {[
               ["Can I switch plans later?", "Yes — switch anytime from the Billing page. Your invoice is issued immediately and entitlements update in real time."],
               ["What counts as an active client?", "Any client with at least one report, dispute or letter in the workspace. You can archive closed clients."],
-              ["Is there a free trial?", "The Free plan is free forever for up to 3 clients. Paid plans can be started and canceled at any time."],
+              ["Is there a free trial?", "Yes — every new workspace starts with a 3-day free trial with access to all features. After the trial, choose a paid plan that fits your agency."],
               ["Does CreditOS charge consumers directly?", "No — consumer services (Kickstart, Standard, Complete, Monitoring) are sold by your agency. CreditOS bills agencies, not their clients."],
             ].map(([q, a]) => (
               <div key={q} className="rounded-xl border border-white/6 bg-white/3 p-4">
@@ -153,11 +153,11 @@ export default function PricingPage() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ready to get started?</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-500 dark:text-slate-400">
             {model === "business"
-              ? "Spin up your agency workspace in under a minute — no credit card required on Free."
+              ?              "Spin up your agency workspace in under a minute — 3-day free trial, no credit card required."
               : "Talk to a licensed credit repair agency about your plan today."}
           </p>
           <Link href={model === "business" ? "/register" : "/contact"} className="mt-8 inline-block">
-            <Button size="lg">{model === "business" ? "Create your workspace" : "Find an agency"} <ArrowRight className="h-4 w-4" /></Button>
+            <Button size="lg">{model === "business" ? "Start free trial" : "Find an agency"} <ArrowRight className="h-4 w-4" /></Button>
           </Link>
         </motion.div>
       </section>

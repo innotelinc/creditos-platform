@@ -8,6 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
  */
 const ENTITLEMENTS: Record<TenantPlan, string[]> = {
   FREE: ["reports", "analysis", "letters", "disputes"],
+  TRIAL: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation", "crm", "api", "white_label"],
   STARTER: ["reports", "analysis", "letters", "disputes", "client_portal"],
   PROFESSIONAL: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation"],
   BUSINESS: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation", "crm", "api", "white_label"],
@@ -28,10 +29,11 @@ export class PricingService {
     return this.entitlements(plan).includes(feature);
   }
 
-  /** Public catalog: active plans grouped by model, ordered for display. */
+  /** Public catalog: active plans grouped by model, ordered for display.
+   *  Excludes legacy FREE plans — all plans are paid with a 3-day trial. */
   async catalog() {
     const plans = await this.prisma.plan.findMany({
-      where: { isActive: true },
+      where: { isActive: true, code: { not: "FREE" } },
       orderBy: [{ model: "asc" }, { sortOrder: "asc" }],
     });
     return {

@@ -13,8 +13,11 @@ import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { AuthShell } from "@/components/layout/auth-shell";
+import { Tabs } from "@/components/ui/tabs";
+import { Building, User } from "@/components/ui/icons";
 
 const schema = z.object({
+  model: z.enum(["BUSINESS", "CONSUMER"]),
   tenantName: z.string().min(2, "Agency name is required"),
   tenantSlug: z
     .string()
@@ -38,9 +41,10 @@ export default function RegisterPage() {
     formState: { errors, isSubmitting },
   } = useForm<Form>({
     resolver: zodResolver(schema),
-    defaultValues: { tenantName: "", tenantSlug: "" },
+    defaultValues: { model: "BUSINESS", tenantName: "", tenantSlug: "" },
   });
 
+  const model = watch("model");
   const tenantName = watch("tenantName");
 
   React.useEffect(() => {
@@ -73,11 +77,26 @@ export default function RegisterPage() {
   return (
     <AuthShell wide>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Create your workspace</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Set up your agency — the first account in a new agency becomes its administrator.
+          {model === "BUSINESS"
+            ? "Set up your agency workspace — 3-day free trial included."
+            : "Start your credit repair journey — 3-day free trial included."}
         </p>
       </div>
+
+      <div className="mb-6">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">I am a…</p>
+        <Tabs
+          value={model}
+          onChange={(v) => setValue("model", v as "BUSINESS" | "CONSUMER")}
+          tabs={[
+            { value: "BUSINESS", label: "Credit repair agency" },
+            { value: "CONSUMER", label: "Consumer / client" },
+          ]}
+        />
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
         <Field label="Agency name" error={errors.tenantName?.message}>
           <Input placeholder="Summit Credit Solutions" {...register("tenantName")} />
@@ -98,7 +117,7 @@ export default function RegisterPage() {
         </div>
         <div className="sm:col-span-2">
           <Button type="submit" loading={isSubmitting} className="w-full" size="lg">
-            Create workspace
+            {model === "BUSINESS" ? "Create workspace" : "Start free trial"}
           </Button>
         </div>
       </form>

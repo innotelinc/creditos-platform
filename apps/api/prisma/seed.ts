@@ -531,23 +531,14 @@ async function seedDemoAgency() {
 
 const BUSINESS_PLANS = [
   {
-    code: "FREE",
-    name: "Free",
-    description: "Try the platform with a starter workspace",
-    priceCents: 0,
-    interval: PlanInterval.MONTH,
-    popular: false,
-    sortOrder: 1,
-    features: ["3 active clients", "1 workspace user", "Report ingestion (CSV)", "AI analysis", "Letter library"],
-  },
-  {
     code: "STARTER",
     name: "Starter",
     description: "For solo credit specialists",
     priceCents: 4900,
     interval: PlanInterval.MONTH,
     popular: false,
-    sortOrder: 2,
+    sortOrder: 1,
+    stripePriceId: null,
     features: ["10 active clients", "3 workspace users", "All bureaus + OCR", "AI analysis with findings", "Letter generator + PDF"],
   },
   {
@@ -557,7 +548,8 @@ const BUSINESS_PLANS = [
     priceCents: 14900,
     interval: PlanInterval.MONTH,
     popular: true,
-    sortOrder: 3,
+    sortOrder: 2,
+    stripePriceId: null,
     features: ["50 active clients", "10 workspace users", "Dispute workflow rounds 1–3", "Bureau response reader", "Client portal + e-sign", "Automation rules"],
   },
   {
@@ -567,7 +559,8 @@ const BUSINESS_PLANS = [
     priceCents: 39900,
     interval: PlanInterval.MONTH,
     popular: false,
-    sortOrder: 4,
+    sortOrder: 3,
+    stripePriceId: null,
     features: ["250 active clients", "Unlimited users", "CRM & sales pipeline", "White-label branding", "API access", "Priority support"],
   },
   {
@@ -577,7 +570,8 @@ const BUSINESS_PLANS = [
     priceCents: 0,
     interval: PlanInterval.MONTH,
     popular: false,
-    sortOrder: 5,
+    sortOrder: 4,
+    stripePriceId: null,
     features: ["Unlimited clients", "Dedicated success manager", "SSO / SAML", "Custom AI models & prompts", "SOC 2 audit pack", "Custom SLA"],
   },
 ];
@@ -771,9 +765,9 @@ const ARTICLES: Array<{ slug: string; title: string; category: string; excerpt: 
     slug: "billing-and-plans",
     title: "Billing & plan switching",
     category: "billing",
-    excerpt: "How subscriptions, invoices and seat limits work.",
+    excerpt: "How subscriptions, invoices, trials and seat limits work.",
     order: 1,
-    body: "Your workspace runs on a Business model plan (Free, Starter, Professional, Business, Enterprise). Switch plans anytime from the Billing page — the invoice is generated immediately and your feature entitlements update. Plan limits include active clients and workspace seats.",
+    body: "New workspaces start with a 3-day free trial — explore all features with no commitment. After the trial, choose a plan (Starter, Professional, Business, or Enterprise) from the Billing page. Switch plans anytime — the invoice is generated immediately and your feature entitlements update. Plan limits include active clients and workspace seats.",
   },
   {
     slug: "compliance-disclosures",
