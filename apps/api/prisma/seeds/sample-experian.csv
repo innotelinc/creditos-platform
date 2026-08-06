@@ -1,0 +1,19 @@
+Experian Credit Report Export
+Name,Alex Rivera
+Date Generated,07/28/2026
+FICO Score,612
+Reason 1,Too many inquiries
+Reason 2,Serious delinquency
+Reason 3,High utilization
+
+Account Name,Account Type,Account Number,Status,Balance,Credit Limit,High Balance,Payment History,Opened Date,Last Reported,Date First Delinquent,Months Negative
+First National Collection,Collection,XFN-441209,Collection Account,$1240.00,,,$111111111111111111111111,03/12/2018,03/12/2019,01/15/2018,18
+Capital One,Revolving,5178 4521 9076 3312,Charge Off,$3850.00,$4000.00,$4200.00,111111111111111111111111,05/01/2019,01/30/2024,11/01/2022,4
+Verizon Wireless,Collection,VZN-88213,Collection,$312.00,,,$111111111111111111111111,09/01/2020,06/15/2022,09/01/2020,6
+Chase Freedom,Revolving,4356 8810 2244 9917,Current,$1200.00,$6500.00,$6500.00,000000000000000000000000,03/15/2021,07/01/2026,,0
+Student Loan Services,Installment,SLS-9912201,Current,$18400.00,$21000.00,$21000.00,000000000000000000000000,08/20/2017,07/05/2026,,0
+
+Inquiries
+Ally Financial,Hard,05/12/2026
+Discover Bank,Hard,06/02/2026
+Citi Card,Hard,06/18/2026

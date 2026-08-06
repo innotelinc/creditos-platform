@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-lint:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prisma generate
+        working-directory: apps/api
+        run: npx prisma generate
+      - name: API typecheck
+        working-directory: apps/api
+        run: npm run typecheck
+      - name: Web typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+      - name: API lint
+        working-directory: apps/api
+        run: npm run lint
+      - name: Web lint
+        working-directory: apps/web
+        run: npm run lint
+
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: creditos
+          POSTGRES_PASSWORD: creditos
+          POSTGRES_DB: creditos
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U creditos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://creditos:creditos@localhost:5432/creditos?schema=public
+      REDIS_HOST: localhost
+      JWT_ACCESS_SECRET: test-access-secret-at-least-16-chars
+      JWT_REFRESH_SECRET: test-refresh-secret-at-least-16-chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+      - name: Run API tests
+        working-directory: apps/api
+        run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck-and-lint, tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build API
+        working-directory: apps/api
+        run: npx prisma generate && npm run build
+      - name: Build Web
+        working-directory: apps/web
+        run: npm run build
+      - name: Docker build api
+        run: docker build -f apps/api/Dockerfile -t creditos-api:ci .
+      - name: Docker build web
+        run: docker build -f apps/web/Dockerfile -t creditos-web:ci .
+
+  e2e:
+    name: Playwright E2E (smoke)
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start compose stack
+        run: docker compose up -d --build
+      - name: Wait for API readiness
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3001/health/ready >/dev/null 2>&1 && break
+            sleep 5
+          done
+          curl -sf http://localhost:3001/health/ready >/dev/null
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E suite
+        env:
+          E2E_BASE_URL: http://localhost:3000
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

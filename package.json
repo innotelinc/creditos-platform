@@ -1,0 +1,27 @@
+{
+  "name": "creditos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CreditOS — AI Credit Repair Operating System (monorepo)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @creditos/api\" \"npm run dev -w @creditos/web\"",
+    "build": "npm run build -w @creditos/api && npm run build -w @creditos/web",
+    "lint": "npm run lint -w @creditos/api && npm run lint -w @creditos/web",
+    "typecheck": "npm run typecheck -w @creditos/api && npm run typecheck -w @creditos/web",
+    "test": "npm run test -w @creditos/api",
+    "test:e2e": "playwright test",
+    "db:migrate": "npm run prisma:migrate -w @creditos/api",
+    "db:seed": "npm run prisma:seed -w @creditos/api",
+    "db:generate": "npm run prisma:generate -w @creditos/api"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "concurrently": "^9.1.0"
+  }
+}

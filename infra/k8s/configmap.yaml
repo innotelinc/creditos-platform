@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: creditos-config
+  namespace: creditos
+data:
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: creditos
+  JWT_ACCESS_TTL: "900"
+  JWT_REFRESH_TTL: "2592000"
+  AI_PROVIDER: openrouter
+  AI_BASE_URL: https://openrouter.ai/api/v1
+  AI_MODEL: deepseek/deepseek-chat
+  AI_TIMEOUT_MS: "60000"
+  RUN_SEED: "false"
+  APP_URL: https://creditos.example.com
+  NEST_API_URL: http://api:3001
+  CORS_ORIGINS: https://creditos.example.com

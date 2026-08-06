@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Prisma
+apps/api/prisma/*.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Coverage / E2E
+coverage/
+playwright-report/
+e2e/playwright-report/
+e2e/test-results/
+
+# Uploads (local dev fallback)
+apps/api/.uploads/
+
+# Docker
+docker-data/
+
+# Playwright (root-level output)
+test-results/

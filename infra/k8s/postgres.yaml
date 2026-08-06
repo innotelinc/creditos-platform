@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creditos-secrets
+  namespace: creditos
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: change-me
+  JWT_ACCESS_SECRET: change-me-access-secret-32-chars
+  JWT_REFRESH_SECRET: change-me-refresh-secret-32-chars
+  AI_API_KEY: ""
+  S3_ACCESS_KEY: minioadmin
+  S3_SECRET_KEY: minioadmin
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: creditos
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: creditos
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{ containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_USER, value: creditos }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: creditos-secrets, key: POSTGRES_PASSWORD } } }
+            - { name: POSTGRES_DB, value: creditos }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "creditos"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: postgres-pvc }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: creditos
+spec:
+  selector: { app: postgres }
+  ports:
+    - port: 5432
+      targetPort: 5432
