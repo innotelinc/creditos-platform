@@ -6,11 +6,6 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/proxy-body-size: "25m"
-    # Rewrite /api/* → /v1/* so API calls hit the NestJS global prefix.
-    # Stripe webhooks (raw body) go through this same path directly to the
-    # API — they must not pass through the Next.js BFF proxy.
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      rewrite ^/api/(.*) /v1/$1 break;
 spec:
   rules:
     - host: credit.innotel.us
