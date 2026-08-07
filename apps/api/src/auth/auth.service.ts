@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { Role, User, UserStatus, TenantPlan, SubscriptionStatus } from "@prisma/client";
+import { Role, User, UserStatus, TenantPlan } from "@prisma/client";
 import { authenticator } from "otplib";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
@@ -19,7 +19,8 @@ import type {
 import type { AccessTokenPayload } from "./jwt.strategy";
 
 export interface AuthResult {
-  user: Omit<User, "passwordHash" | "totpSecret">;
+  // `notes` are staff-written client notes — never sent to the client.
+  user: Omit<User, "passwordHash" | "totpSecret" | "notes">;
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
@@ -40,8 +41,15 @@ export class AuthService {
   async register(dto: RegisterDto, ip?: string, userAgent?: string): Promise<AuthResult> {
     let tenant = await this.prisma.tenant.findUnique({ where: { slug: dto.tenantSlug } });
     if (!tenant) {
+      // Self-signup consumers (model=CONSUMER) get flagged on the tenant so the
+      // billing endpoints can let them buy the Credit Monitoring plan directly.
       tenant = await this.prisma.tenant.create({
-        data: { name: dto.tenantName, slug: dto.tenantSlug, plan: TenantPlan.TRIAL },
+        data: {
+          name: dto.tenantName,
+          slug: dto.tenantSlug,
+          plan: TenantPlan.TRIAL,
+          settings: { isConsumer: dto.model === "CONSUMER" },
+        },
       });
       this.logger.log(`Created tenant ${tenant.slug}`);
     }
@@ -67,26 +75,13 @@ export class AuthService {
       },
     });
 
-    const trialDays = this.config.get<number>("TRIAL_DAYS") ?? 3;
-    // Start a trial for new tenants (length configurable via TRIAL_DAYS)
-    if (tenant.plan === TenantPlan.TRIAL && userCount === 0) {
-      const trialEnds = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
-      await this.prisma.subscription.create({
-        data: {
-          tenantId: tenant.id,
-          planCode: "TRIAL",
-          status: SubscriptionStatus.TRIALING,
-          provider: "local",
-          trialEndsAt: trialEnds,
-        },
-      });
-      this.logger.log(`Started ${trialDays}-day trial for ${tenant.slug} (ends ${trialEnds.toISOString()})`);
-    }
-
+    // No free trials: new workspaces start without a subscription. Every feature
+    // stays blocked (402) until the first paid plan is activated on the Billing
+    // page — Stripe charges immediately, with no trial period.
     await this.mail.send(
       user.email,
       "Welcome to CreditOS",
-      `<p>Hi ${user.name},</p><p>Your <strong>${tenant.name}</strong> account is ready. You have a ${trialDays}-day free trial to explore all features. Sign in at ${this.config.get("APP_URL")}/login.</p>`,
+      `<p>Hi ${user.name},</p><p>Your <strong>${tenant.name}</strong> workspace is ready. There are no free trials — choose a plan on the Billing page to start pulling credit reports. Sign in at ${this.config.get("APP_URL")}/login.</p>`,
     );
 
     return this.issueTokens(user, ip, userAgent);
@@ -231,7 +226,8 @@ export class AuthService {
       include: { tenant: { select: { id: true, name: true, slug: true, plan: true, brandColor: true, settings: true } } },
     });
     if (!user) throw new UnauthorizedException();
-    const { passwordHash, totpSecret, tenant, ...safe } = user;
+    // `notes` are staff-written client notes — never sent to the client themself.
+    const { passwordHash, totpSecret, notes, tenant, ...safe } = user;
     // Shape matches the web app's AuthSession: { user, tenant }.
     return { user: safe, tenant };
   }
@@ -265,7 +261,8 @@ export class AuthService {
       },
     });
 
-    const { passwordHash: _p, totpSecret: _t, ...safe } = user;
+    // `notes` are staff-written client notes — never included in session payloads.
+    const { passwordHash: _p, totpSecret: _t, notes: _n, ...safe } = user;
     return { user: safe, accessToken, refreshToken, expiresIn };
   }
 

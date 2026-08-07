@@ -45,7 +45,7 @@ export default function LandingPage() {
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
             <Link href="/register">
-              <Button size="sm">Start free trial</Button>
+              <Button size="sm">Get started</Button>
             </Link>
           </div>
         </div>
@@ -271,9 +271,9 @@ export default function LandingPage() {
         </motion.div>
         <div className="grid gap-5 md:grid-cols-3">
           {[
-            { name: "Starter", price: "$49", desc: "For individual repair specialists", features: ["5 active clients", "Report ingestion", "AI analysis", "Letter library"] },
-            { name: "Professional", price: "$149", desc: "For growing agencies", features: ["50 active clients", "Dispute workflow rounds 1–3", "Bureau response reader", "Client portal"], featured: true },
-            { name: "Business", price: "$399", desc: "For multi-branch operations", features: ["Unlimited clients", "Multi-tenant white label", "CRM & pipeline", "API access"] },
+            { name: "Starter", price: "$169", desc: "For solo specialists — 10 pulls/mo", features: ["10 active clients", "10 automatic pulls /mo", "Report ingestion", "AI analysis", "Letter library"] },
+            { name: "Professional", price: "$629", desc: "For growing agencies — 40 pulls/mo", features: ["50 active clients", "40 automatic pulls /mo", "Dispute workflow rounds 1–3", "Bureau response reader", "Client portal"], featured: true },
+            { name: "Business", price: "$2,199", desc: "For multi-branch operations — 150 pulls/mo", features: ["250 active clients", "150 automatic pulls /mo", "Multi-tenant white label", "CRM & pipeline", "API access"] },
           ].map((p, i) => (
             <motion.div
               key={p.name}
@@ -300,7 +300,7 @@ export default function LandingPage() {
               </ul>
               <Link href="/register" className="mt-6 block">
                 <Button variant={p.featured ? "default" : "outline"} className="w-full">
-                  Start free trial
+                  Choose plan
                 </Button>
               </Link>
             </motion.div>

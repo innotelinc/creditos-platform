@@ -6,10 +6,12 @@ import { PrismaService } from "../prisma/prisma.service";
 /**
  * Feature entitlements per tenant plan (business model). Used for plan gating
  * (e.g. CRM requires BUSINESS) and surfaced to the Billing page.
- * There are no free plans — every workspace starts on TRIAL, then a paid plan.
+ * There are no free plans and no free trials — new workspaces hold the TRIAL
+ * placeholder plan until the first paid plan is activated (the subscription
+ * gate blocks all features until then, and TRIAL grants nothing).
  */
 const ENTITLEMENTS: Record<TenantPlan, string[]> = {
-  TRIAL: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation", "crm", "api", "white_label"],
+  TRIAL: [],
   STARTER: ["reports", "analysis", "letters", "disputes", "client_portal"],
   PROFESSIONAL: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation"],
   BUSINESS: ["reports", "analysis", "letters", "disputes", "client_portal", "bureau_reader", "automation", "crm", "api", "white_label"],
@@ -23,9 +25,9 @@ export class PricingService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Length of the signup trial in days (editable via TRIAL_DAYS). */
+  /** No free trials — always 0. Kept for catalog-shape compatibility. */
   trialDays(): number {
-    return this.config.get<number>("TRIAL_DAYS") ?? 3;
+    return 0;
   }
 
   /** Feature set granted by a tenant plan. Fail-closed for unknown plans. */
@@ -39,7 +41,7 @@ export class PricingService {
   }
 
   /** Public catalog: active plans grouped by model, ordered for display.
-   *  No free plans — access starts with a configurable trial, then paid plans. */
+   *  No free plans and no free trials — paid plans only. */
   async catalog() {
     const plans = await this.prisma.plan.findMany({
       where: { isActive: true },

@@ -20,22 +20,37 @@ local/simulated mode. Price IDs are wired up by the seed:
 (`checkout.session.completed`, `customer.subscription.*`, `invoice.paid`) to
 update local subscriptions; see `apps/api/src/billing/stripe.webhook.controller.ts`.
 
-## Trial expiry
+## Access gating (no free trials)
 
-Every workspace starts with a `TRIAL_DAYS`-long trial. When a trial ends
-without converting to a paid plan, the subscription is marked `EXPIRED`:
+There are no free trials. A brand-new workspace has **no subscription**, so the
+global `SubscriptionGateGuard` returns `402 Payment Required` on every core
+endpoint (reports, pulls, analysis, letters, disputes, documents, dashboard,
+CRM, user management) until the first plan is paid. Only `ACTIVE`
+subscriptions pass; canceled/expired/past-due are blocked too. Auth, billing,
+settings, notifications, public pages, and platform admin stay reachable.
 
-- A hourly sweep (`TrialExpiryService`) flips overdue `TRIALING` subscriptions
-  to `EXPIRED` and emails + notifies the workspace admins, pointing them to
-  the billing page.
-- The same expiry runs lazily whenever an admin opens the billing page or the
-  app shell checks `/billing/status`.
-- Once `EXPIRED`, a global guard returns `402 Payment Required` on every core
-  endpoint (reports, analysis, letters, disputes, documents, dashboard, CRM,
-  user management) until a paid plan is chosen. Auth, billing, settings,
-  notifications, public pages, and platform admin stay reachable.
-- Client-role users of an expired workspace see a lock screen (only the
-  workspace admin can re-subscribe).
+- Stripe checkouts are created with `trial_period_days: 0` — the first payment
+  is charged immediately.
+- Client-role users of a blocked workspace see a lock screen (only the
+  workspace admin can subscribe).
+
+## Credit pulls (share codes)
+
+Automatic report pulls use a consumer share code from the client's monitoring
+account (SmartCredit / IdentityIQ flow) via a pluggable provider:
+
+- `CREDIT_PULL_PROVIDER` — `simulated` (default, no credentials) |
+  `smartcredit` | `identityiq`.
+- `SMARTCREDIT_API_BASE_URL` / `SMARTCREDIT_API_KEY` and
+  `IDENTITYIQ_API_BASE_URL` / `IDENTITYIQ_API_KEY` configure the real adapters;
+  confirm the exact endpoint/payload against your provider agreement.
+- `CREDIT_PULL_COST_CENTS` (default `1200`) is what each pull costs us and is
+  passed through into plan pricing (see `apps/api/prisma/seed.ts`).
+- `CREDIT_MONITORING_PRICE_CENTS` (default `2995`) is the resale price of the
+  consumer Credit Monitoring plan — matched to the provider's price.
+- Share codes are never stored; only a salted sha256 (`CREDIT_PULL_SHARE_SECRET`)
+  is kept on the report. Each pull writes a `ReportPull` usage row with the
+  cost for pass-through accounting.
 
 ## Backups (PostgreSQL)
 

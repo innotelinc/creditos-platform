@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
-import { api, type CreditReport, type User } from "@/lib/api";
+import { api, type ClientItem, type CreditReport } from "@/lib/api";
 import { useRole } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, statusVariant } from "@/components/ui/badge";
@@ -29,22 +30,37 @@ const bureaus = [
 ];
 
 export default function ReportsPage() {
+  // useSearchParams (client filter) must sit inside a Suspense boundary to
+  // prerender statically.
+  return (
+    <React.Suspense fallback={null}>
+      <ReportsPageInner />
+    </React.Suspense>
+  );
+}
+
+function ReportsPageInner() {
   const { isStaff } = useRole();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [pullOpen, setPullOpen] = React.useState(false);
   const [bureau, setBureau] = React.useState("EXPERIAN");
   const [clientId, setClientId] = React.useState("");
+  const [shareCode, setShareCode] = React.useState("");
   const [file, setFile] = React.useState<File | null>(null);
 
+  const searchParams = useSearchParams();
+  const clientFilter = searchParams?.get("client") ?? null;
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["reports"],
-    queryFn: () => api.get<{ items: CreditReport[]; total: number }>("/reports"),
+    queryKey: ["reports", clientFilter],
+    queryFn: () => api.get<{ items: CreditReport[]; total: number }>(`/reports${clientFilter ? `?clientId=${clientFilter}` : ""}`),
   });
 
   const { data: clients } = useQuery({
     queryKey: ["clients"],
-    queryFn: () => api.get<{ items: User[] }>("/users/clients"),
+    queryFn: () => api.get<{ items: ClientItem[] }>("/users/clients"),
     enabled: isStaff,
   });
 
@@ -67,6 +83,25 @@ export default function ReportsPage() {
     onError: (err: Error) => toast({ type: "error", title: "Upload failed", description: err.message }),
   });
 
+  const pull = useMutation({
+    mutationFn: () => {
+      if (!clientId || !shareCode.trim()) throw new Error("Select a client and enter their share code");
+      return api.post<CreditReport>("/reports/pull", {
+        clientId,
+        bureau,
+        shareCode: shareCode.trim(),
+      });
+    },
+    onSuccess: (report) => {
+      toast({ type: "success", title: "Report pulled", description: "Report imported from the client's monitoring account — AI analysis is running." });
+      setPullOpen(false);
+      setShareCode("");
+      qc.invalidateQueries({ queryKey: ["reports"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err: Error) => toast({ type: "error", title: "Pull failed", description: err.message }),
+  });
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-end justify-between gap-4">
@@ -81,12 +116,26 @@ export default function ReportsPage() {
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
           {isStaff && (
-            <Button size="sm" onClick={() => setUploadOpen(true)}>
-              <Upload className="h-4 w-4" /> Upload report
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setPullOpen(true)}>
+                <Download className="h-4 w-4" /> Pull report
+              </Button>
+              <Button size="sm" onClick={() => setUploadOpen(true)}>
+                <Upload className="h-4 w-4" /> Upload report
+              </Button>
+            </>
           )}
         </div>
       </motion.div>
+
+      {clientFilter && (
+        <div className="flex items-center gap-3 rounded-2xl border border-brand-500/25 bg-brand-500/5 px-4 py-3 text-sm">
+          <span className="font-medium">Showing reports for one client</span>
+          <Link href="/reports" className="ml-auto text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+            Clear filter ✕
+          </Link>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -116,7 +165,7 @@ export default function ReportsPage() {
                 </div>
                 <p className="mt-3 truncate text-sm font-semibold">{r.filename}</p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {r.client.name} · {formatDate(r.createdAt)}
+                  {r.client.name} · {r.provider ? `Pulled ${formatDate(r.pulledAt ?? r.createdAt)}` : `Uploaded ${formatDate(r.createdAt)}`}
                 </p>
                 <div className="mt-4 flex items-center justify-between border-t border-white/6 pt-3 text-xs">
                   <span className="text-slate-400">
@@ -131,6 +180,46 @@ export default function ReportsPage() {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={pullOpen}
+        onClose={() => setPullOpen(false)}
+        title="Pull credit report"
+        description="Import the client's report automatically from their monitoring account using their consumer share code. Pulls within your plan's monthly allowance are included; extra pulls are billed via Stripe metered usage."
+      >
+        <div className="space-y-4">
+          <Field label="Client">
+            <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+              <option value="">Select client…</option>
+              {clients?.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} — {c.email}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Bureau">
+            <Select value={bureau} onChange={(e) => setBureau(e.target.value)}>
+              {bureaus.map((b) => (
+                <option key={b.value} value={b.value}>
+                  {b.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Share code" hint="Found in the client's monitoring account — e.g. their SmartCredit or IdentityIQ share code. Stored only as a salted hash.">
+            <Input
+              value={shareCode}
+              onChange={(e) => setShareCode(e.target.value)}
+              placeholder="e.g. SC-7F3A-91D2"
+              autoComplete="off"
+            />
+          </Field>
+          <Button className="w-full" loading={pull.isPending} disabled={!clientId || !shareCode.trim()} onClick={() => pull.mutate()}>
+            <Download className="h-4 w-4" /> Pull & analyze
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog
         open={uploadOpen}

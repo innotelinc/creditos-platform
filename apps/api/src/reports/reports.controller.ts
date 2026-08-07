@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -13,10 +15,11 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Response } from "express";
-import { IsEnum, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsEnum, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
 import { Type } from "class-transformer";
 import { Bureau, ReportStatus } from "@prisma/client";
 import { ReportsService } from "./reports.service";
+import { PullsService } from "./pulls/pulls.service";
 import { Permissions } from "../common/decorators";
 
 class ReportListQueryDto {
@@ -53,11 +56,37 @@ class UploadQueryDto {
   bureau?: Bureau;
 }
 
+class PullReportDto {
+  @IsString()
+  clientId: string;
+
+  @IsString()
+  @MinLength(4, { message: "Share code must be at least 4 characters" })
+  shareCode: string;
+
+  @IsOptional()
+  @IsEnum(Bureau)
+  bureau?: Bureau;
+}
+
+class UpdateReportDto {
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsEnum(Bureau)
+  bureau?: Bureau;
+}
+
 @ApiTags("reports")
 @ApiBearerAuth()
 @Controller("reports")
 export class ReportsController {
-  constructor(private readonly reports: ReportsService) {}
+  constructor(
+    private readonly reports: ReportsService,
+    private readonly pulls: PullsService,
+  ) {}
 
   @Get()
   @Permissions("viewReports")
@@ -110,6 +139,20 @@ export class ReportsController {
       mimeType: file.mimetype,
       buffer: file.buffer,
     });
+  }
+
+  @Post("pull")
+  @Permissions("manageReports")
+  @ApiOperation({ summary: "Pull a credit report automatically using the client's consumer share code (SmartCredit / IdentityIQ / simulated)" })
+  pull(@Body() dto: PullReportDto) {
+    return this.pulls.pull({ clientId: dto.clientId, bureau: dto.bureau, shareCode: dto.shareCode });
+  }
+
+  @Patch(":id")
+  @Permissions("manageReports")
+  @ApiOperation({ summary: "Update report metadata — staff notes or bureau reassignment" })
+  update(@Param("id") id: string, @Body() dto: UpdateReportDto) {
+    return this.reports.update(id, { notes: dto.notes, bureau: dto.bureau });
   }
 
   @Delete(":id")

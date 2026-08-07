@@ -2,17 +2,22 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { api, type AnalysisResult, type CreditReport } from "@/lib/api";
+import { useRole } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, statusVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Textarea } from "@/components/ui/input";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { ScoreRing } from "@/components/ui/charts";
 import { ComplianceBanner } from "@/components/ui/compliance-banner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -21,6 +26,9 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
+  Trash2,
+  Save,
+  StickyNote,
 } from "@/components/ui/icons";
 
 const severityStyles = {
@@ -31,10 +39,43 @@ const severityStyles = {
 
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>() ?? { id: "" };
+  const router = useRouter();
+  const qc = useQueryClient();
+  const { isStaff } = useRole();
+  const { toast } = useToast();
+  const [notes, setNotes] = React.useState("");
+  const [notesDirty, setNotesDirty] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["report", id],
     queryFn: () => api.get<CreditReport>(`/reports/${id}`),
+  });
+
+  React.useEffect(() => {
+    if (report && !notesDirty) setNotes(report.notes ?? "");
+  }, [report, notesDirty]);
+
+  const saveNotes = useMutation({
+    mutationFn: () => api.patch<CreditReport>(`/reports/${id}`, { notes }),
+    onSuccess: () => {
+      toast({ type: "success", title: "Notes saved" });
+      setNotesDirty(false);
+      qc.invalidateQueries({ queryKey: ["report", id] });
+      qc.invalidateQueries({ queryKey: ["reports"] });
+    },
+    onError: (err: Error) => toast({ type: "error", title: "Could not save notes", description: err.message }),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => api.delete<{ success: boolean }>(`/reports/${id}`),
+    onSuccess: () => {
+      toast({ type: "info", title: "Report deleted" });
+      qc.invalidateQueries({ queryKey: ["reports"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      router.replace("/reports");
+    },
+    onError: (err: Error) => toast({ type: "error", title: "Could not delete report", description: err.message }),
   });
 
   const { data: analysis, isLoading: analysisLoading } = useQuery({
@@ -69,7 +110,10 @@ export default function ReportDetailPage() {
           </Link>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">{report.filename}</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {report.client.name} · {report.bureau} · Uploaded {formatDate(report.createdAt)}
+            {report.client.name} · {report.bureau} ·{" "}
+            {report.provider
+              ? `Pulled via ${report.provider} on ${formatDate(report.pulledAt ?? report.createdAt)}`
+              : `Uploaded ${formatDate(report.createdAt)}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -79,8 +123,71 @@ export default function ReportDetailPage() {
               <Download className="h-4 w-4" /> Original file
             </Button>
           </a>
+          {isStaff && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-rose-500/25 text-rose-500 hover:bg-rose-500/8"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          )}
         </div>
       </motion.div>
+
+      {/* Staff notes */}
+      {isStaff && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <StickyNote className="h-4 w-4 text-brand-500" /> Staff notes
+              </CardTitle>
+              <CardDescription>Internal notes about this report — visible to your team only.</CardDescription>
+            </div>
+            {notesDirty && (
+              <Button size="sm" loading={saveNotes.isPending} onClick={() => saveNotes.mutate()}>
+                <Save className="h-4 w-4" /> Save notes
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <Field label="Notes">
+              <Textarea
+                rows={3}
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  setNotesDirty(true);
+                }}
+                placeholder="e.g. Disputed the Capital One charge-off on Aug 3 — awaiting bureau response."
+              />
+            </Field>
+            <div className="mt-2 flex justify-end">
+              <Button size="sm" variant="outline" loading={saveNotes.isPending} disabled={!notesDirty} onClick={() => saveNotes.mutate()}>
+                <Save className="h-4 w-4" /> Save notes
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete this report?"
+        description="This permanently removes the report, its tradelines, scores and linked analysis. Client history in disputes is kept."
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" loading={remove.isPending} onClick={() => remove.mutate()}>
+            <Trash2 className="h-4 w-4" /> Delete report
+          </Button>
+        </div>
+      </Dialog>
 
       {(analysis?.status === "ANALYZING" || analysis?.status === "PARSING") && (
         <div className="flex items-center gap-3 rounded-2xl border border-brand-500/25 bg-brand-500/5 px-5 py-4">

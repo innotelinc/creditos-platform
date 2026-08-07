@@ -8,10 +8,23 @@ export interface User {
   role: string;
   status: string;
   phone: string | null;
+  notes: string | null;
   isSuperAdmin: boolean;
   totpEnabled: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+}
+
+export interface ClientItem {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  notes: string | null;
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+  _count?: { reportsAsClient: number; disputesAsClient: number };
 }
 
 export interface TenantInfo {
@@ -60,6 +73,9 @@ export interface CreditReport {
   mimeType: string | null;
   sizeBytes: number | null;
   status: string;
+  notes: string | null;
+  provider: string | null;
+  pulledAt: string | null;
   createdAt: string;
   analyzedAt: string | null;
   summary: Record<string, number> | null;
@@ -224,6 +240,7 @@ export interface Plan {
   popular: boolean;
   isActive: boolean;
   sortOrder: number;
+  pullsIncluded?: number;
   features: string[];
   stripePriceId: string | null;
 }
@@ -257,11 +274,25 @@ export interface Invoice {
   createdAt: string;
 }
 
+export interface PullAllowance {
+  planCode: string | null;
+  /** Bundled pulls per billing period on the active plan. */
+  included: number;
+  /** Successful pulls used in the current period. */
+  used: number;
+  remaining: number;
+  overage: boolean;
+  /** Decision for the next pull: included | metered | blocked. */
+  mode: "included" | "metered" | "blocked";
+  overageCents: number;
+}
+
 export interface BillingSummary {
   tenant: { id: string; name: string; plan: string };
   subscription: SubscriptionInfo | null;
   invoices: Invoice[];
-  usage: { clients: number; reports: number; lettersSent: number };
+  usage: { clients: number; reports: number; lettersSent: number; pulls: number };
+  allowance: PullAllowance;
   entitlements: string[];
 }
 
@@ -269,7 +300,7 @@ export interface BillingStatus {
   status: string | null;
   planCode: string | null;
   trialEndsAt: string | null;
-  /** True when access is blocked because the trial ended without conversion. */
+  /** True when access is blocked because the tenant has no active paid plan. */
   blocked: boolean;
 }
 

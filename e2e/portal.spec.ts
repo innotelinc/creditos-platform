@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { loginViaUi, SEED } from "./helpers";
 
-const BASE = process.env.E2E_BASE_URL ?? "http://localhost:8080";
+const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3002";
 
 async function apiLogin(email: string, password = "Password123!") {
   const ctx = await pwRequest.newContext({ baseURL: BASE });

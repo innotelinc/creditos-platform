@@ -3,11 +3,13 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
 import { Type } from "class-transformer";
 import { BillingService } from "./billing.service";
-import { Permissions } from "../common/decorators";
 
 class CheckoutDto {
   @IsString()
   planCode: string;
+  @IsOptional()
+  @IsIn(["BUSINESS", "CONSUMER"])
+  model?: "BUSINESS" | "CONSUMER";
   @IsOptional()
   @IsIn(["MONTH", "YEAR"])
   interval?: "MONTH" | "YEAR";
@@ -25,8 +27,9 @@ export class BillingController {
   constructor(private readonly billing: BillingService) {}
 
   @Get("summary")
-  @Permissions("adminAll")
-  @ApiOperation({ summary: "Subscription, invoices, usage and entitlements for the tenant" })
+  // Role checks happen in the service: admins always, plus CLIENT users on
+  // self-signup consumer tenants (so they can manage their monitoring plan).
+  @ApiOperation({ summary: "Subscription, invoices, usage and entitlements for the tenant (admins, or clients on consumer tenants)" })
   summary() {
     return this.billing.summary();
   }
@@ -38,22 +41,19 @@ export class BillingController {
   }
 
   @Post("checkout")
-  @Permissions("adminAll")
-  @ApiOperation({ summary: "Start or switch a subscription. Returns a Stripe Checkout URL when Stripe is configured, or processes locally." })
+  @ApiOperation({ summary: "Start or switch a subscription. Admins pick any plan; consumer tenants can self-subscribe to Credit Monitoring. Returns a Stripe Checkout URL when Stripe is configured, or processes locally." })
   checkout(@Body() dto: CheckoutDto) {
     return this.billing.checkout(dto);
   }
 
   @Post("cancel")
-  @Permissions("adminAll")
-  @ApiOperation({ summary: "Cancel the tenant subscription" })
+  @ApiOperation({ summary: "Cancel the tenant subscription (admins, or clients on consumer tenants)" })
   cancel() {
     return this.billing.cancel();
   }
 
   @Post("portal")
-  @Permissions("adminAll")
-  @ApiOperation({ summary: "Get a Stripe Customer Portal URL for managing payment method, invoices, and subscription" })
+  @ApiOperation({ summary: "Get a Stripe Customer Portal URL for managing payment method, invoices, and subscription (admins, or clients on consumer tenants)" })
   portal() {
     return this.billing.portal();
   }

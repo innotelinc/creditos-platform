@@ -26,10 +26,11 @@ const EXEMPT_PREFIXES = [
 ];
 
 /**
- * Full feature block for expired trials: once a tenant's subscription is
- * EXPIRED (trial ended without conversion), every core endpoint — reports,
- * analysis, letters, disputes, documents, dashboard, CRM, user management —
- * returns 402 Payment Required until a paid plan is chosen.
+ * Full feature block unless the tenant has an active paid subscription. There
+ * are no free trials — a brand-new workspace has no subscription at all, so
+ * every core endpoint — reports, analysis, letters, disputes, documents,
+ * dashboard, CRM, user management — returns 402 Payment Required until the
+ * first plan is paid. Canceled/expired subscriptions are blocked too.
  *
  * Runs after JwtAuthGuard so `req.user` is populated. Public routes, super
  * admins, and the exempt prefixes above pass through.
@@ -56,19 +57,14 @@ export class SubscriptionGateGuard implements CanActivate {
     const path = req.path ?? "";
     if (EXEMPT_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) return true;
 
+    // No free trials: only an ACTIVE subscription grants access. New tenants
+    // have no subscription row at all, so they are blocked until first payment.
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId: user.tenantId } });
-    const now = new Date();
-    // A TRIALING row whose trialEndsAt has passed is treated as expired even
-    // before the hourly sweep flips it — no window of un-gated access.
-    const blocked =
-      sub?.status === SubscriptionStatus.EXPIRED ||
-      (sub?.status === SubscriptionStatus.TRIALING &&
-        !!sub.trialEndsAt &&
-        sub.trialEndsAt < now);
+    const blocked = !sub || sub.status !== SubscriptionStatus.ACTIVE;
 
     if (blocked) {
       throw new HttpException(
-        { statusCode: HttpStatus.PAYMENT_REQUIRED, message: "Your trial has ended — choose a plan to continue." },
+        { statusCode: HttpStatus.PAYMENT_REQUIRED, message: "Your workspace isn't on an active plan — choose a plan to continue." },
         HttpStatus.PAYMENT_REQUIRED,
       );
     }

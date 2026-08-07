@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: "25mb" }
   },
-  allowedDevOrigins: ["192.168.1.168", "localhost"]
+  allowedDevOrigins: ["credit.innotel.us", "192.168.1.168", "localhost"]
 };
 
 export default nextConfig;

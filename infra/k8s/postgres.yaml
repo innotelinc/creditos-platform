@@ -6,8 +6,8 @@ metadata:
 type: Opaque
 stringData:
   POSTGRES_PASSWORD: change-me
-  JWT_ACCESS_SECRET: change-me-access-secret-32-chars
-  JWT_REFRESH_SECRET: change-me-refresh-secret-32-chars
+  JWT_ACCESS_SECRET: 884cb537ebdc46473b0a798e329c5e3472b9a72acaaa2f6c5ca43a1718e89f27
+  JWT_REFRESH_SECRET: 87a15c17cb2210f04920b571183885fffc1cda31dac78a8b4d6642441c8a71f5
   AI_API_KEY: ""
   S3_ACCESS_KEY: minioadmin
   S3_SECRET_KEY: minioadmin

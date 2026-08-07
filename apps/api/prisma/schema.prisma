@@ -140,6 +140,7 @@ model Tenant {
   invoices     Invoice[]
   crmLeads     CrmLead[]
   crmActivities CrmActivity[]
+  reportPulls  ReportPull[]
 
   @@index([plan])
 }
@@ -152,6 +153,7 @@ model User {
   role           Role       @default(CLIENT)
   status         UserStatus @default(ACTIVE)
   phone          String?
+  notes          String? // staff notes about the client
   isSuperAdmin   Boolean    @default(false)
   emailVerifiedAt DateTime?
   totpSecret     String?
@@ -258,6 +260,9 @@ model CreditReport {
   mimeType       String?
   sizeBytes      Int?
   status         ReportStatus @default(UPLOADED)
+  notes          String? // staff notes about this report
+  provider       String? // credit pull provider (simulated | smartcredit | identityiq) when auto-pulled
+  shareCodeHash  String? // hashed consumer share code used for the pull (never stored in plaintext)
   parseErrors    Json?
   rawJson        Json?
   analyzedAt     DateTime?
@@ -272,6 +277,7 @@ model CreditReport {
   publicRecords  PublicRecord[]
   scoreSnapshots ScoreSnapshot[]
   disputes       Dispute[]
+  pulls          ReportPull[]
 
   @@index([tenantId, clientId, createdAt])
   @@index([bureau])
@@ -533,6 +539,26 @@ enum InvoiceStatus {
   REFUNDED
 }
 
+model ReportPull {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reportId      String?
+  report        CreditReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  provider      String // pull provider that served this pull
+  bureau        Bureau    @default(OTHER)
+  shareCodeHash String?
+  costCents     Int       @default(0) // what this pull cost us (pass-through pricing)
+  status        String    @default("SUCCESS") // PENDING | SUCCESS | FAILED
+  overage       Boolean   @default(false) // true when the pull exceeded the plan allowance (metered/billed)
+  providerRef   String? // reference id returned by the provider
+  error         String?
+  createdAt     DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([reportId])
+}
+
 model Plan {
   id             String       @id @default(cuid())
   model          PlanModel
@@ -545,6 +571,7 @@ model Plan {
   popular        Boolean      @default(false)
   isActive       Boolean      @default(true)
   sortOrder      Int          @default(0)
+  pullsIncluded  Int          @default(0) // automatic credit pulls bundled per billing period
   features       Json? // string[] shown on the plan card
   stripePriceId  String? // Stripe Price ID for checkout sessions
   createdAt      DateTime     @default(now())
@@ -565,6 +592,11 @@ model Subscription {
   providerRef      String?
   currentPeriodEnd DateTime?
   trialEndsAt      DateTime?
+  // Pull-allowance tracking: start of the current usage period (lazily rolled
+  // forward when currentPeriodEnd passes) and the Stripe subscription item id
+  // for the metered overage price (PULL_OVERAGE), when attached.
+  usagePeriodStart DateTime?
+  usageItemId      String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 

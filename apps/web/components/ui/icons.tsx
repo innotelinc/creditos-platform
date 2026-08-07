@@ -249,3 +249,31 @@ export const Send = (p: IconProps) => (
     <path d="M22 2 11 13" />
   </svg>
 );
+
+export const Trash2 = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M10 11v6M14 11v6" />
+  </svg>
+);
+
+export const Save = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+    <path d="M17 21v-8H7v8M7 3v5h8" />
+  </svg>
+);
+
+export const StickyNote = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z" />
+    <path d="M15 3v6h6M9 15h6M9 11h2" />
+  </svg>
+);
+
+export const KeyRound = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z" />
+    <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+  </svg>
+);

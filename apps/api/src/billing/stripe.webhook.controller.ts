@@ -89,11 +89,10 @@ export class StripeWebhookController {
       this.logger.warn(`checkout.session.completed missing metadata: ${session.id}`);
       return;
     }
-    const plan = this.validPlanCode(planCode);
-    if (!plan) {
-      this.logger.warn(`checkout.session.completed invalid plan code: ${planCode}`);
-      return;
-    }
+    // planCode may be a consumer code (e.g. MONITORING) that isn't a TenantPlan
+    // enum value — it is stored verbatim on the subscription row. Only the
+    // tenant plan (entitlements/gating) is synced for valid business codes.
+    const tenantPlan = this.validPlanCode(planCode);
 
     // session.subscription is an id string in real webhook payloads, but can be
     // the expanded object when the session was retrieved with expand — accept both.
@@ -103,9 +102,13 @@ export class StripeWebhookController {
 
     // The subscription may still be in its Stripe trial (trialing) when the
     // checkout completes — carry over the Stripe trial period so the billing
-    // page shows the correct status and trial end date.
+    // page shows the correct status and trial end date. Also capture the
+    // metered overage subscription item (pull-allowance billing) and the
+    // current usage period start.
     let status: SubscriptionStatus = SubscriptionStatus.ACTIVE;
     let trialEndsAt: Date | null = null;
+    let usagePeriodStart: Date | null = null;
+    let usageItemId: string | null = null;
     if (subId && this.stripe.client) {
       try {
         const stripeSub = await this.stripe.client.subscriptions.retrieve(subId);
@@ -113,41 +116,62 @@ export class StripeWebhookController {
           status = SubscriptionStatus.TRIALING;
           trialEndsAt = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null;
         }
+        const periodStartRaw = (stripeSub as Stripe.Subscription & { current_period_start?: number | null })
+          .current_period_start;
+        usagePeriodStart = periodStartRaw ? new Date(periodStartRaw * 1000) : null;
+        usageItemId =
+          stripeSub.items?.data?.find(
+            (it) => it.price?.active !== false && it.price?.metadata?.creditos_plan_code === "PULL_OVERAGE",
+          )?.id ?? null;
       } catch (err: any) {
         this.logger.warn(`Could not retrieve Stripe subscription ${subId}: ${err?.message}`);
       }
     }
 
+    // usagePeriodStart/usageItemId are written unconditionally (null clears a
+    // stale value) so a removed metered item stops billing overages instead of
+    // reporting usage Stripe will never invoice.
     await this.prisma.subscription.upsert({
       where: { tenantId },
       update: {
-        planCode: plan,
+        planCode,
         status,
         provider: "stripe",
         providerRef: subId,
         trialEndsAt,
+        usagePeriodStart,
+        usageItemId,
       },
       create: {
         tenantId,
-        planCode: plan,
+        planCode,
         status,
         provider: "stripe",
         providerRef: subId,
         trialEndsAt,
+        usagePeriodStart,
+        usageItemId,
       },
     });
 
-    // Store the Stripe customer ID on the tenant for future reference
+    // Store the Stripe customer ID on the tenant for future reference,
+    // preserving existing settings (e.g. isConsumer on self-signup tenants).
     if (customerId) {
+      const current = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { settings: true },
+      });
       await this.prisma.tenant.update({
         where: { id: tenantId },
-        data: { settings: { stripeCustomerId: customerId } },
+        data: {
+          settings: { ...((current?.settings as Record<string, unknown>) ?? {}), stripeCustomerId: customerId },
+        },
       });
     }
 
-    await this.syncTenantPlan(tenantId, plan);
+    if (tenantPlan) await this.syncTenantPlan(tenantId, tenantPlan);
 
-    this.logger.log(`Checkout completed: tenant=${tenantId} plan=${plan} sub=${subId}`);
+    this.logger.log(`Checkout completed: tenant=${tenantId} plan=${planCode} sub=${subId}`);
   }
 
   private async handleSubscriptionUpdated(sub: Stripe.Subscription) {
@@ -181,10 +205,20 @@ export class StripeWebhookController {
       sub.billing_schedules?.[0]?.bill_until?.computed_timestamp ??
       sub.trial_end;
     const currentPeriodEnd = periodEndRaw ? new Date(periodEndRaw * 1000) : null;
+    const periodStartRaw = (sub as Stripe.Subscription & { current_period_start?: number | null })
+      .current_period_start;
+    const usagePeriodStart = periodStartRaw ? new Date(periodStartRaw * 1000) : null;
     // Plan changes made in the Stripe portal surface here — derive the plan code
-    // from the subscription item's price metadata when available.
+    // from the subscription item's price metadata when available. Consumer codes
+    // (e.g. MONITORING) are stored verbatim; only business codes sync tenant.plan.
     const rawPriceCode = sub.items?.data?.[0]?.price?.metadata?.creditos_plan_code;
     const pricePlan = this.validPlanCode(rawPriceCode);
+    // Keep the metered overage item in sync (portal plan changes / item changes).
+    // Written unconditionally so a removed item clears the id and stops billing.
+    const usageItemId =
+      sub.items?.data?.find(
+        (it) => it.price?.active !== false && it.price?.metadata?.creditos_plan_code === "PULL_OVERAGE",
+      )?.id ?? null;
 
     await this.prisma.subscription.update({
       where: { id: existing.id },
@@ -192,7 +226,9 @@ export class StripeWebhookController {
         status: newStatus,
         currentPeriodEnd,
         trialEndsAt: newStatus === SubscriptionStatus.TRIALING ? trialEndsAt : null,
-        ...(pricePlan ? { planCode: pricePlan } : {}),
+        ...(rawPriceCode ? { planCode: rawPriceCode } : {}),
+        usagePeriodStart,
+        usageItemId,
       },
     });
     if (pricePlan) await this.syncTenantPlan(existing.tenantId, pricePlan);

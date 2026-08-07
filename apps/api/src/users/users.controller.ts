@@ -1,12 +1,57 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Role, UserStatus } from "@prisma/client";
 import { UsersService } from "./users.service";
 import { CurrentUser, Permissions } from "../common/decorators";
 import { AuthUser } from "../common/types";
 import { CreateUserDto, UpdateUserDto, UpdateUserRoleDto, UpdateUserStatusDto } from "../auth/dto";
-import { IsEnum, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsEmail, IsEnum, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
 import { Type } from "class-transformer";
+
+class CreateClientDto {
+  @IsString()
+  @MinLength(2)
+  name: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+class UpdateClientDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+}
 
 class UserListQueryDto {
   @IsOptional()
@@ -49,9 +94,30 @@ export class UsersController {
 
   @Get("clients")
   @Permissions("viewClients")
-  @ApiOperation({ summary: "Active client list (staff dropdowns)" })
+  @ApiOperation({ summary: "Client list with notes, status and report counts (staff)" })
   clients() {
     return this.users.clients();
+  }
+
+  @Post("clients")
+  @Permissions("manageClients")
+  @ApiOperation({ summary: "Add a client to the workspace (creates portal credentials)" })
+  createClient(@Body() dto: CreateClientDto) {
+    return this.users.createClient(dto);
+  }
+
+  @Patch("clients/:id")
+  @Permissions("manageClients")
+  @ApiOperation({ summary: "Update a client — name, email, phone, notes, status" })
+  updateClient(@Param("id") id: string, @Body() dto: UpdateClientDto) {
+    return this.users.updateClient(id, dto);
+  }
+
+  @Delete("clients/:id")
+  @Permissions("manageClients")
+  @ApiOperation({ summary: "Remove a client (disables portal access, history is kept)" })
+  removeClient(@Param("id") id: string) {
+    return this.users.removeClient(id);
   }
 
   @Get()

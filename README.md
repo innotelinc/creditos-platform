@@ -33,7 +33,7 @@ boot. Then open:
 
 | Service              | URL                              |
 | -------------------- | -------------------------------- |
-| Web app              | http://localhost:3000            |
+| Web app              | http://localhost:3002            |
 | API Swagger docs     | http://localhost:3001/docs       |
 | MailHog (email inbox)| http://localhost:8025            |
 | MinIO console        | http://localhost:9001            |
@@ -62,7 +62,7 @@ see each other's reports, disputes, or letters.
 ```bash
 npm install
 docker compose up -d postgres redis minio mailhog   # infra only
-npm run dev                                          # API :3001 + Web :3000 with watch
+npm run dev                                          # API :3001 + Web :3002 with watch
 ```
 
 ## AI provider

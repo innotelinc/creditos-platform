@@ -21,7 +21,7 @@ import {
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { session } = useAuth();
-  const { isAdmin, isStaff } = useRole();
+  const { isAdmin, isStaff, isClient, isConsumer } = useRole();
 
   const items = [
     { href: "/dashboard", label: "Dashboard", icon: Dashboard },
@@ -30,9 +30,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     { href: "/letters", label: "Letters", icon: Mail },
     { href: "/documents", label: "Documents", icon: Document },
   ];
+  if (isStaff) items.push({ href: "/clients", label: "Clients", icon: Users });
   if (isStaff) items.push({ href: "/crm", label: "CRM", icon: Users });
   if (isAdmin) items.push({ href: "/admin", label: "Admin", icon: Shield });
-  if (isAdmin) items.push({ href: "/billing", label: "Billing", icon: CreditCard });
+  // Self-signup consumers buy and manage their Credit Monitoring plan here.
+  if (isAdmin || (isClient && isConsumer)) items.push({ href: "/billing", label: "Billing", icon: CreditCard });
   items.push({ href: "/settings", label: "Settings", icon: Settings });
 
   const tenant = session?.tenant;

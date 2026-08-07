@@ -8,7 +8,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: "25m"
 spec:
   rules:
-    - host: creditos.example.com
+    - host: credit.innotel.us
       http:
         paths:
           - path: /api
@@ -28,4 +28,4 @@ spec:
             backend:
               service:
                 name: web
-                port: { number: 3000 }
+                port: { number: 3002 }

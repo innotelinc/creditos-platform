@@ -123,7 +123,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run E2E suite
         env:
-          E2E_BASE_URL: http://localhost:3000
+          E2E_BASE_URL: http://localhost:3002
         run: npm run test:e2e
       - name: Upload Playwright report
         if: failure()

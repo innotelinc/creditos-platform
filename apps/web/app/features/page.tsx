@@ -53,7 +53,7 @@ export default function FeaturesPage() {
       <section className="mx-auto max-w-7xl px-6 pb-24">
         <motion.div {...fade} className="glass-strong relative overflow-hidden rounded-3xl p-10 text-center sm:p-14">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Compare plans for your agency</h2>
-          <p className="mx-auto mt-3 max-w-xl text-slate-500 dark:text-slate-400">Start with a free trial, scale as you grow — pricing for both agencies and their clients.</p>
+          <p className="mx-auto mt-3 max-w-xl text-slate-500 dark:text-slate-400">No free trials — pay for what you use, including automatic credit pulls at cost. Pricing for both agencies and their clients.</p>
           <Link href="/pricing" className="mt-8 inline-block">
             <Button size="lg">See pricing <ArrowRight className="h-4 w-4" /></Button>
           </Link>

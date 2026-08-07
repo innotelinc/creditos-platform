@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { api, type Plan, type PricingCatalog } from "@/lib/api";
@@ -55,14 +56,25 @@ function PlanCard({ plan, cta }: { plan: Plan; cta: { label: string; href: strin
 }
 
 export default function PricingPage() {
-  const [model, setModel] = React.useState<"business" | "consumer">("business");
+  // useSearchParams must sit inside a Suspense boundary to prerender statically.
+  return (
+    <React.Suspense fallback={null}>
+      <PricingPageInner />
+    </React.Suspense>
+  );
+}
+
+function PricingPageInner() {
+  const searchParams = useSearchParams();
+  const [model, setModel] = React.useState<"business" | "consumer">(
+    searchParams?.get("model") === "consumer" ? "consumer" : "business",
+  );
   const { data, isLoading } = useQuery({
     queryKey: ["pricing"],
     queryFn: () => api.get<PricingCatalog>("/pricing/public"),
   });
 
   const plans: Plan[] = data ? data[model] : [];
-  const trialDays = data?.trialDays ?? 3;
   const heading =
     model === "business"
       ? "For credit repair agencies"
@@ -81,7 +93,7 @@ export default function PricingPage() {
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
-            <Link href="/register"><Button size="sm">Start free trial</Button></Link>
+            <Link href="/register"><Button size="sm">Get started</Button></Link>
           </div>
         </div>
       </header>
@@ -123,7 +135,7 @@ export default function PricingPage() {
               <PlanCard
                 key={p.id}
                 plan={p}
-                cta={{ label: "Start free trial", href: "/register" }}
+                cta={{ label: "Choose plan", href: "/register" }}
               />
             ))}
           </div>
@@ -136,9 +148,9 @@ export default function PricingPage() {
           <div className="mt-6 space-y-5 text-sm">
             {[
               ["Can I switch plans later?", "Yes — switch anytime from the Billing page. Your invoice is issued immediately and entitlements update in real time."],
-              ["What counts as an active client?", "Any client with at least one report, dispute or letter in the workspace. You can archive closed clients."],
-              ["Is there a free trial?", `Yes — every new workspace starts with a ${trialDays}-day free trial with access to all features. After the trial, choose a paid plan that fits you.`],
-              ["Does CreditOS charge consumers directly?", "No — consumer services (Kickstart, Standard, Complete, Monitoring) are sold by your agency. CreditOS bills agencies, not their clients."],
+              ["What counts as an active client?", "Any client with at least one report, dispute or letter in the workspace. You can remove clients and restore them later."],
+              ["Is there a free trial?", "No — there are no free trials. Every workspace picks a paid plan at signup and is billed immediately. Business plans bundle automatic credit pulls at cost, and the monitoring plan resells the provider's price."],
+              ["Does CreditOS charge consumers directly?", "Consumer services (Kickstart, Standard, Complete, Monitoring) are sold by your agency. Agencies can also let clients subscribe to Monitoring directly — priced at the provider's rate."],
             ].map(([q, a]) => (
               <div key={q} className="rounded-xl border border-white/6 bg-white/3 p-4">
                 <p className="font-semibold">{q}</p>
@@ -154,11 +166,11 @@ export default function PricingPage() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ready to get started?</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-500 dark:text-slate-400">
             {model === "business"
-              ? `Spin up your agency workspace in under a minute — ${trialDays}-day free trial, no credit card required.`
-              : "Sign up in under a minute and take control of your credit repair — no credit card required during your trial."}
+              ? "Spin up your agency workspace in under a minute — no free trial, choose the plan that fits and start pulling reports."
+              : "Sign up in under a minute — choose the service that fits and take control of your credit repair."}
           </p>
           <Link href="/register" className="mt-8 inline-block">
-            <Button size="lg">Start your free trial <ArrowRight className="h-4 w-4" /></Button>
+            <Button size="lg">Choose your plan <ArrowRight className="h-4 w-4" /></Button>
           </Link>
         </motion.div>
       </section>

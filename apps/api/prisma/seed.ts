@@ -529,94 +529,116 @@ async function seedDemoAgency() {
 }
 
 // ── Pricing catalog: business (agency SaaS) + consumer (client services) ────
+//
+// Prices include the cost of the third-party credit data service, passed
+// through "respectively": business plans bundle a number of automatic credit
+// pulls at our cost (CREDIT_PULL_COST_CENTS, default $12.00/pull), and the
+// consumer Credit Monitoring plan resells the provider's monitoring at the
+// provider's price (CREDIT_MONITORING_PRICE_CENTS, default $29.95/mo — the
+// IdentityIQ/SmartCredit-class rate). No free plans, no free trials.
 
+const PULL_COST_CENTS = Number(process.env.CREDIT_PULL_COST_CENTS ?? 1200);
+const MONITORING_PRICE_CENTS = Number(process.env.CREDIT_MONITORING_PRICE_CENTS ?? 2995);
+
+// Base platform price + included pulls × pull cost.
 const BUSINESS_PLANS = [
   {
     code: "STARTER",
     name: "Starter",
-    description: "For solo credit specialists",
-    priceCents: 4900,
+    description: "For solo credit specialists — includes 10 automatic pulls/mo",
+    baseCents: 4900,
+    pullsIncluded: 10,
     interval: PlanInterval.MONTH,
     popular: false,
     sortOrder: 1,
     stripePriceId: null,
-    features: ["10 active clients", "3 workspace users", "All bureaus + OCR", "AI analysis with findings", "Letter generator + PDF"],
+    features: ["10 active clients", "3 workspace users", "10 automatic credit pulls /mo", "All bureaus + OCR", "AI analysis with findings", "Letter generator + PDF"],
   },
   {
     code: "PROFESSIONAL",
     name: "Professional",
-    description: "For growing repair agencies",
-    priceCents: 14900,
+    description: "For growing repair agencies — includes 40 automatic pulls/mo",
+    baseCents: 14900,
+    pullsIncluded: 40,
     interval: PlanInterval.MONTH,
     popular: true,
     sortOrder: 2,
     stripePriceId: null,
-    features: ["50 active clients", "10 workspace users", "Dispute workflow rounds 1–3", "Bureau response reader", "Client portal + e-sign", "Automation rules"],
+    features: ["50 active clients", "10 workspace users", "40 automatic credit pulls /mo", "Dispute workflow rounds 1–3", "Bureau response reader", "Client portal + e-sign", "Automation rules"],
   },
   {
     code: "BUSINESS",
     name: "Business",
-    description: "For multi-branch operations",
-    priceCents: 39900,
+    description: "For multi-branch operations — includes 150 automatic pulls/mo",
+    baseCents: 39900,
+    pullsIncluded: 150,
     interval: PlanInterval.MONTH,
     popular: false,
     sortOrder: 3,
     stripePriceId: null,
-    features: ["250 active clients", "Unlimited users", "CRM & sales pipeline", "White-label branding", "API access", "Priority support"],
+    features: ["250 active clients", "Unlimited users", "150 automatic credit pulls /mo", "CRM & sales pipeline", "White-label branding", "API access", "Priority support"],
   },
   {
     code: "ENTERPRISE",
     name: "Enterprise",
     description: "Custom deployments, SLAs & compliance",
-    priceCents: 0,
+    baseCents: 0,
+    pullsIncluded: 0,
     interval: PlanInterval.MONTH,
     popular: false,
     sortOrder: 4,
     stripePriceId: null,
-    features: ["Unlimited clients", "Dedicated success manager", "SSO / SAML", "Custom AI models & prompts", "SOC 2 audit pack", "Custom SLA"],
+    features: ["Unlimited clients", "Custom pull volume pricing", "Dedicated success manager", "SSO / SAML", "Custom AI models & prompts", "SOC 2 audit pack", "Custom SLA"],
   },
-];
+].map(({ baseCents, ...rest }) => ({
+  ...rest,
+  priceCents: baseCents === 0 ? 0 : baseCents + (rest.pullsIncluded ?? 0) * PULL_COST_CENTS,
+}));
 
 const CONSUMER_PLANS = [
   {
     code: "KICKSTART",
     name: "Kickstart",
-    description: "One-time dispute audit + first letter",
-    priceCents: 19900,
+    description: "One-time dispute audit + first letter (1 pull included)",
+    priceCents: 19900 + 1 * PULL_COST_CENTS,
     interval: PlanInterval.ONE_TIME,
     popular: false,
     sortOrder: 1,
+    pullsIncluded: 1,
     features: ["1 credit report review", "AI error analysis", "1 dispute letter (609/611)", "Delivered in 48h"],
   },
   {
     code: "STANDARD",
     name: "Standard Repair",
-    description: "3-month full repair program",
-    priceCents: 49900,
+    description: "3-month full repair program (3 pulls included)",
+    priceCents: 49900 + 3 * PULL_COST_CENTS,
     interval: PlanInterval.ONE_TIME,
     popular: true,
     sortOrder: 2,
+    pullsIncluded: 3,
     features: ["All 3 bureau reports", "Unlimited dispute rounds", "Bureau response handling", "Score monitoring during program", "Priority email support"],
   },
   {
     code: "COMPLETE",
     name: "Complete Repair",
-    description: "6-month program with attorney review",
-    priceCents: 89900,
+    description: "6-month program with attorney review (6 pulls included)",
+    priceCents: 89900 + 6 * PULL_COST_CENTS,
     interval: PlanInterval.ONE_TIME,
     popular: false,
     sortOrder: 3,
+    pullsIncluded: 6,
     features: ["Everything in Standard", "Attorney review of disputes", "CFPB complaint filing", "Identity-theft toolkit", "Dedicated specialist"],
   },
   {
     code: "MONITORING",
     name: "Credit Monitoring",
-    description: "Ongoing score & inquiry alerts",
-    priceCents: 1900,
+    description: "Ongoing score & inquiry alerts — powered by our credit bureau partner",
+    priceCents: MONITORING_PRICE_CENTS,
     interval: PlanInterval.MONTH,
     popular: false,
     sortOrder: 4,
-    features: ["Daily score tracking", "New inquiry alerts", "New collection alerts", "Identity-theft alerts"],
+    pullsIncluded: 1,
+    features: ["3-bureau credit monitoring", "Daily score tracking", "New inquiry & collection alerts", "Identity-theft alerts", "Monthly report pulls"],
   },
 ];
 
@@ -635,6 +657,7 @@ interface SeedPlan {
   name: string;
   priceCents: number;
   interval: PlanInterval;
+  pullsIncluded: number;
 }
 
 let stripeClient: Stripe | null | undefined;
@@ -864,9 +887,9 @@ const ARTICLES: Array<{ slug: string; title: string; category: string; excerpt: 
     slug: "billing-and-plans",
     title: "Billing & plan switching",
     category: "billing",
-    excerpt: "How subscriptions, invoices, trials and seat limits work.",
+    excerpt: "How subscriptions, invoices, pull allowances and seat limits work.",
     order: 1,
-    body: "New workspaces start with a free trial — explore all features with no commitment. After the trial, choose a plan (Starter, Professional, Business, or Enterprise) from the Billing page. Switch plans anytime — the invoice is generated immediately and your feature entitlements update. Plan limits include active clients and workspace seats.",
+    body: "There are no free trials — new workspaces pick a paid plan right away. Business plans (Starter, Professional, Business, Enterprise) bundle a number of automatic credit pulls per month: pull a client's report with their share code and the pull is covered by your plan's allowance. Once the allowance is used, additional pulls are billed via Stripe metered usage at the overage rate (or blocked when metered billing isn't available). The consumer Credit Monitoring plan resells 3-bureau monitoring at the provider's price and includes monthly pulls. Self-signup consumers can subscribe to Credit Monitoring directly from the Billing page, and switch or cancel it there too. Switch plans anytime from the Billing page — entitlements update immediately. Plan limits include active clients, pulls, and workspace seats.",
   },
   {
     slug: "compliance-disclosures",

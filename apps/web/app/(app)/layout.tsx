@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -12,7 +13,7 @@ import { CreditCard, Lock } from "@/components/ui/icons";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
-  const { isClient } = useRole();
+  const { isClient, isConsumer } = useRole();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
@@ -32,12 +33,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.replace("/login");
       return;
     }
-    // Expired trial: staff/admins are routed to the billing paywall where they
-    // can pick a plan; client users get a lock screen (they can't subscribe).
-    if (blocked && !isClient && pathname !== "/billing") {
+    // Blocked (no active plan): staff/admins and self-signup consumers are
+    // routed to the billing paywall — consumers can buy Credit Monitoring
+    // themselves; agency-managed client users get a lock screen instead.
+    if (blocked && pathname !== "/billing" && (!isClient || isConsumer)) {
       router.replace("/billing");
     }
-  }, [loading, session, blocked, isClient, pathname, router]);
+  }, [loading, session, blocked, isClient, isConsumer, pathname, router]);
 
   if (loading || !session) {
     return (
@@ -50,9 +52,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Client lock screen — the tenant's trial ended and only the workspace
-  // admin can restore access by subscribing.
-  if (blocked && isClient) {
+  // Client lock screen — agency-managed clients can't subscribe themselves; the
+  // workspace admin restores access. Self-signup consumers are routed to /billing.
+  if (blocked && isClient && !isConsumer) {
     return (
       <div className="app-bg flex min-h-screen items-center justify-center p-6">
         <div className="w-full max-w-md rounded-2xl border border-white/8 bg-white/4 p-8 text-center">
@@ -61,15 +63,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <h1 className="mt-4 text-xl font-bold tracking-tight">Workspace access paused</h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            Your workspace&apos;s trial has ended. Contact your workspace administrator to
-            choose a plan and restore access to reports, disputes and letters.
+            Your workspace doesn&apos;t have an active plan. Contact your workspace administrator
+            to choose a plan and restore access to reports, disputes and letters.
           </p>
-          <button
-            onClick={() => void router.replace("/login")}
-            className="mt-6 rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
-          >
-            Sign out
-          </button>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Link href="/pricing?model=consumer" className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">
+              View services
+            </Link>
+            <button
+              onClick={() => void router.replace("/login")}
+              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     );

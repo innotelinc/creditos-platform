@@ -56,11 +56,15 @@ export function useAuth() {
 export function useRole() {
   const { session } = useAuth();
   const role = session?.user.role ?? "";
+  // Self-signup consumers register with model=CONSUMER on their own tenant
+  // (flagged `settings.isConsumer`) — they buy the monitoring plan themselves.
+  const isConsumer = Boolean((session?.tenant.settings as Record<string, unknown> | null)?.isConsumer);
   return {
     role,
     isClient: role === "CLIENT",
     isStaff: ["CREDIT_SPECIALIST", "DISPUTE_SPECIALIST", "ATTORNEY", "ADMIN", "SUPER_ADMIN"].includes(role),
     isAdmin: role === "ADMIN" || role === "SUPER_ADMIN",
     isSuperAdmin: role === "SUPER_ADMIN",
+    isConsumer,
   };
 }

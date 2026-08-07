@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +15,6 @@ import { slugify } from "@/lib/utils";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { Tabs } from "@/components/ui/tabs";
 import { Building, User } from "@/components/ui/icons";
-import { api, type PricingCatalog } from "@/lib/api";
 
 const schema = z.object({
   model: z.enum(["BUSINESS", "CONSUMER"]),
@@ -35,11 +33,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const { refresh } = useAuth();
   const { toast } = useToast();
-  const { data: catalog } = useQuery({
-    queryKey: ["pricing"],
-    queryFn: () => api.get<PricingCatalog>("/pricing/public"),
-  });
-  const trialDays = catalog?.trialDays ?? 3;
   const {
     register,
     handleSubmit,
@@ -88,8 +81,8 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {isAgency
-            ? `Set up your agency workspace — ${trialDays}-day free trial included.`
-            : `Start your credit repair journey — ${trialDays}-day free trial included.`}
+            ? "Set up your agency workspace — no free trial, choose a plan right after signup."
+            : "Start your credit repair journey — choose the service that fits you."}
         </p>
       </div>
 
@@ -128,7 +121,7 @@ export default function RegisterPage() {
         </div>
         <div className="sm:col-span-2">
           <Button type="submit" loading={isSubmitting} className="w-full" size="lg">
-            {isAgency ? "Create workspace" : "Start free trial"}
+            {isAgency ? "Create workspace" : "Create account"}
           </Button>
         </div>
       </form>
