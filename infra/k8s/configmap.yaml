@@ -23,5 +23,3 @@ data:
   APP_URL: https://credit.innotel.us
   NEST_API_URL: http://api:3001
   CORS_ORIGINS: https://credit.innotel.us
-  STRIPE_SECRET_KEY: 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
-  STRIPE_WEBHOOK_SECRET: whsec_7bKkcTLQWVUAq4JSzpEo2dndUXCQWqLV
