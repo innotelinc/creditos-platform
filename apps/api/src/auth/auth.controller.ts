@@ -63,7 +63,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: "Send password reset email (never reveals whether the email exists)" })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.auth.forgotPassword(dto, process.env.APP_URL ?? "http://localhost:3002");
+    return this.auth.forgotPassword(dto, process.env.APP_URL ?? "http://localhost:3000");
   }
 
   @Public()

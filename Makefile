@@ -30,7 +30,7 @@ prisma:
 up: ## One-command local start of the entire stack
 	docker compose up --build -d
 	@echo "── CreditOS ────────────────────────────────────────────"
-	@echo "  Web UI      http://localhost:3002"
+	@echo "  Web UI      http://localhost:3000"
 	@echo "  API docs    http://localhost:3001/docs"
 	@echo "  MailHog     http://localhost:8025"
 	@echo "  MinIO UI    http://localhost:9001"

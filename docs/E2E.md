@@ -1,7 +1,7 @@
 # E2E Tests (Playwright)
 
 A committed Playwright smoke suite lives in `e2e/` at the repo root and runs
-against the full `docker compose up` stack — the web app on `:3002` (BFF proxy
+against the full `docker compose up` stack — the web app on `:3000` (BFF proxy
 at `/api`) with the API on `:3001`.
 
 ## Running locally
@@ -18,7 +18,7 @@ npm run test:e2e
 ```
 
 Set `E2E_BASE_URL` to point at a different web origin
-(e.g. `http://localhost:3002` in CI, where compose uses default ports).
+(e.g. `http://localhost:3000` in CI, where compose uses default ports).
 
 ## Suite coverage (`e2e/`)
 
@@ -40,7 +40,7 @@ Seed accounts used: `specialist@summit.test`, `admin@summit.test`,
 1. `docker compose up -d --build` (fresh stack, default ports)
 2. Waits for `http://localhost:3001/health/ready`
 3. `npx playwright install --with-deps chromium`
-4. `npm run test:e2e` with `E2E_BASE_URL=http://localhost:3002`
+4. `npm run test:e2e` with `E2E_BASE_URL=http://localhost:3000`
 5. Failed runs upload the Playwright report as a CI artifact
 
 ## Notes

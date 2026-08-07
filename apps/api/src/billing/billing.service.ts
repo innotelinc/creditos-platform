@@ -127,7 +127,7 @@ export class BillingService {
       }
     }
 
-    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3002";
+    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
 
     // ── Stripe mode ──────────────────────────────────────────────────
     // When Stripe is configured we must never silently grant an unpaid local
@@ -278,7 +278,7 @@ export class BillingService {
       throw new NotFoundException("Stripe customer not found. Please contact support.");
     }
 
-    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3002";
+    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
     return this.stripe.createPortalSession({ customerId, returnUrl: `${appUrl}/billing` });
   }
 }

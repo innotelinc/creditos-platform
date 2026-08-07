@@ -19,9 +19,9 @@ multi-tenant isolation, audit trails, and compliance disclosures built in.
 | Backend    | NestJS 11 · Prisma · PostgreSQL 16 · Redis + BullMQ · JWT (refresh rotation) · TOTP 2FA   |
 | AI         | OpenAI-compatible provider interface (OpenRouter / your own proxy) + deterministic local engine |
 | Storage    | MinIO (S3-compatible) · SMTP/MailHog (local email)                                        |
-| DevOps     | Docker Compose · Kubernetes manifests · GitHub Actions CI                                 |
+| DevOps     | Docker Compose · GitHub Actions CI                                 |
 
-## Quick start — one command
+## Docker quick start
 
 ```bash
 cp .env.example .env        # defaults work out of the box
@@ -41,6 +41,40 @@ boot. Then open:
 Host ports are configurable via env vars (`WEB_PORT`, `API_PORT`, `REDIS_PORT`,
 `MINIO_PORT`, `MAILHOG_UI_PORT`, …) if the defaults are already taken on your
 machine — set `APP_URL`/`CORS_ORIGINS` to match your web port in that case.
+
+### Common Docker commands
+
+```bash
+# Start the full stack in the background
+docker compose up -d --build
+
+# Tear down everything (keeps volumes/persistent data)
+docker compose down
+
+# Tear down and delete all data (fresh start)
+docker compose down -v
+
+# Rebuild a single service after code changes
+docker compose up -d --build api
+docker compose up -d --build web
+
+# View live logs
+docker compose logs -f
+docker compose logs -f api    # filter by service
+
+# Restart a single service
+docker compose restart web
+
+# Shell into a running container
+docker compose exec api sh
+docker compose exec web sh
+
+# Run Prisma migrations manually inside the API container
+docker compose exec api npx prisma migrate deploy
+
+# Re-seed the database
+docker compose exec api npx prisma db seed
+```
 
 ### Demo accounts (all password `Password123!`)
 
@@ -96,7 +130,6 @@ apps/
     app/api/  BFF proxy — httpOnly tokens, transparent refresh rotation
     components/ui/  design system (glassmorphism, dark mode, skeletons, dialogs…)
 infra/
-  k8s/    Kubernetes manifests (namespace, config, postgres, redis, api, web, ingress)
 .github/workflows/ci.yml   lint · typecheck · unit tests · builds on every PR
 docs/    Architecture, API, operations, E2E scenarios
 ```
@@ -117,8 +150,7 @@ docs/    Architecture, API, operations, E2E scenarios
 ## Roadmap (spec §phases)
 
 1. **Phase 1 (this deliverable):** Foundation — auth/RBAC, tenancy, reports
-   ingestion (CSV/PDF), AI analysis, letter generator + PDF, dispute rounds,
-   admin/audit/settings, docker-compose, CI, k8s, docs.
+   ingestion (CSV/PDF), AI analysis, letter generator + PDF, dispute rounds,    admin/audit/settings, docker-compose, CI, docs.
 2. **Phase 2:** Authorized data retrieval (Experian Connect et al.), bureau
    response reader, continuous monitoring, AI assistant chat.
 3. **Phase 3:** Payments & billing (Stripe tiers), CRM, client portal, e-sign.
